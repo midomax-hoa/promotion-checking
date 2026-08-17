@@ -33,7 +33,7 @@ Web nội bộ giúp người phụ trách biết file Excel khuyến mãi đún
 | # | Giai đoạn | Phụ thuộc | Trạng thái |
 |---|---|---|---|
 | 01 | [Nền tảng dự án & lược đồ dữ liệu](phase-01-nen-tang-du-an-va-luoc-do-du-lieu.md) | — | ✅ Xong 2026-08-17 |
-| 02 | [Haravan client & đồng bộ danh mục](phase-02-haravan-client-va-dong-bo-danh-muc.md) | 01 | ⬜ Chưa làm |
+| 02 | [Haravan client & đồng bộ danh mục](phase-02-haravan-client-va-dong-bo-danh-muc.md) | 01 | ✅ Xong 2026-08-17 |
 | 03 | [Đọc & chuẩn hoá file Excel](phase-03-doc-va-chuan-hoa-file-excel.md) | 01 | ⬜ Chưa làm |
 | 04 | [Bộ máy luật (nhóm A–E)](phase-04-bo-may-luat-nhom-a-den-e.md) | 02, 03 | ⬜ Chưa làm |
 | 05 | [Màn kiểm tra file & xuất báo cáo](phase-05-man-kiem-tra-file-va-xuat-bao-cao.md) | 04 | ⬜ Chưa làm |

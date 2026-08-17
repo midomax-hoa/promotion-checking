@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — luật B và F đều dựa vào dữ liệu ở đây
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Hoàn thành (2026-08-17)
 - Xây tầng gọi API Haravan có kiểm soát nhịp, kéo toàn bộ danh mục về cache, và làm màn hình ③ Đồng bộ danh mục.
 
 ## Nhận định quan trọng
@@ -125,23 +125,48 @@ Dùng thống nhất ở mọi nơi: `sku.trim().toLowerCase()`. Bản gốc v�
 
 ## Danh sách việc
 
-- [ ] `types.ts` theo phản hồi API thật
-- [ ] `rate-limiter.ts` + test
-- [ ] `haravan-client.ts` có thử lại khi 429 + test
-- [ ] `catalog-sync.ts` phân trang, ghi theo lô + test
-- [ ] Đếm SKU rỗng / SKU trùng
-- [ ] `catalog-index.ts` + test
-- [ ] Màn hình ③ Đồng bộ danh mục
-- [ ] Tuyến API chạy đồng bộ có tiến trình
-- [ ] Chạy thật trên store dev, đối chiếu với `products/count.json`
+- [x] `types.ts` theo phản hồi API thật
+- [x] `rate-limiter.ts` + test
+- [x] `haravan-client.ts` có thử lại khi 429 + test
+- [x] `catalog-sync.ts` phân trang, ghi theo lô + test
+- [x] Đếm SKU rỗng / SKU trùng
+- [x] `catalog-index.ts` + test
+- [x] Màn hình ③ Đồng bộ danh mục
+- [x] Tuyến API chạy đồng bộ có tiến trình
+- [x] Chạy thật trên store dev, đối chiếu với `products/count.json`
+
+## Kết quả thực tế (2026-08-17)
+
+Sáu điểm lệch so với kế hoạch, đã xử lý và kiểm chứng:
+
+| Kế hoạch ghi | Thực tế | Cách xử lý |
+|---|---|---|
+| Test đặt cạnh nguồn, vd `src/lib/haravan/haravan-client.test.ts` | Test đặt ở `test/haravan/`, `test/catalog/`, soi gương theo cấu trúc `src/` | Theo đúng quy ước đã dùng ở giai đoạn 01, không tách hai kiểu trong cùng một kho |
+| `haravan.page_size` được phép nhận tới 250 (`positiveInt.max(250)`) | Haravan **ép cứng `limit` về 50** phía máy chủ. Đặt 100 thì trang đầy 50 phần tử bị hiểu nhầm là trang cuối → dừng sớm → `deleteStale` xoá phần còn lại của cache mà vẫn đóng dấu thành công | Chặn hai lớp: kẹp trần cấu hình xuống 50, **và** cho bộ phân trang tự học kích thước trang thật từ trang 1 thay vì tin cấu hình. Có test khẳng định |
+| 7 khoá `AppSetting` (giai đoạn 01) | Thêm 3 khoá: `haravan.max_attempts` (mặc định 4), `catalog.cursor_overlap_ms` (mặc định 300000), `catalog.sync_shortfall_tolerance` (mặc định 0) → tổng **10 khoá** | Giữ ngưỡng vận hành ngoài mã nguồn, sửa được ở giai đoạn 07 |
+| Duyệt hết trang là coi như đồng bộ xong | Có thể duyệt hết mà vẫn thiếu dữ liệu, không hề ném lỗi nào | Đọc `GET /com/products/count.json` trước, sau khi duyệt xong mà kéo về ít hơn `count − tolerance` thì **ném lỗi trước** khi `deleteStale`, không đóng dấu `lastFullSyncAt` |
+| Mốc đồng bộ tăng dần đặt đúng bằng `updated_at` lớn nhất đã thấy | Sản phẩm bị sửa lúc đang đồng bộ, nằm ở trang đã đi qua, sẽ có `updated_at` thấp hơn mốc mới → **vĩnh viễn không được kéo lại** | Lùi mốc lại `catalog.cursor_overlap_ms` (mặc định 5 phút). Kéo trùng vài sản phẩm là vô hại vì ghi theo kiểu xoá-rồi-chèn |
+| Lưu `sku` nguyên si | SKU rỗng lưu thành chuỗi rỗng thì "không có SKU" phải kiểm bằng hai điều kiện | Chuẩn hoá rỗng thành `NULL` ngay khi ghi; `bySku` không bao giờ có khoá rỗng |
+
+Kiểm chứng trên store dev (74 sản phẩm, 937 biến thể):
+- Full sync: 2 page, page 1 = 50 items, page 2 = 24 items, khớp `GET /com/products/count.json` (74 sản phẩm)
+- Thời gian: 0.7–1.1s, trong ngân sách 30s
+- SKU: 3 biến thể có SKU rỗng, 0 nhóm SKU trùng lặp, 238 biến thể cha có `published_at = null`
+- Đồng bộ tăng dần: 1 sản phẩm (15 biến thể) trong 65ms
+- Guard: HTTP 409 khi chạy sync 2 lần đồng thời; HTTP 403 khi POST từ origin khác (Sec-Fetch-Site)
+- Build: `npm run typecheck`, `npm run lint`, `npm run build` không lỗi; `npm test` 62 test pass
+
+Đã kiểm chứng thêm **thứ tự trả về của `products.json`: sắp theo `id` giảm dần** (soi đủ 74 sản phẩm qua 2 trang ngày 2026-08-17), không phải theo `updated_at` như từng lo. Nhờ vậy sửa sản phẩm giữa chừng không làm trượt trang; sản phẩm mới tạo giữa chừng nhận `id` lớn hơn nên chen lên đầu, chỉ khiến một sản phẩm bị kéo lại hai lần chứ không bị bỏ sót — mà ghi trùng thì vô hại. Ghi chú này nằm trong `src/lib/haravan/types.ts`.
+
+**Ngân sách 30 giây cho 3.000 sản phẩm chưa kiểm chứng** — store dev chỉ có 74 sản phẩm. Ước tính: 3.000 sản phẩm ≈ 60 trang, ở nhịp 3 lượt/giây thì riêng phần điều tiết nhịp đã khoảng 20 giây, biên an toàn khá mỏng. Nếu chạy thật bị chậm thì có hai đòn bẩy: nâng `haravan.requests_per_second` (đã cho phép tới 4), hoặc nới cửa sổ tải trước.
 
 ## Tiêu chí hoàn thành
 
-- Đồng bộ store dev xong, số sản phẩm khớp `GET /com/products/count.json`
-- Đồng bộ 3.000 sản phẩm dưới 30 giây
-- Mô phỏng 429 trong test → client chờ rồi thử lại, **không** báo là dữ liệu sai
-- Màn hình ③ hiện đúng thời điểm đồng bộ và cảnh báo khi cache cũ
-- Không có đường đi nào cho phép gửi `?sku=` rỗng (có test khẳng định điều này)
+- Đồng bộ store dev xong, số sản phẩm khớp `GET /com/products/count.json` ✓
+- Đồng bộ 3.000 sản phẩm dưới 30 giây — *chưa kiểm chứng trên live store*
+- Mô phỏng 429 trong test → client chờ rồi thử lại, **không** báo là dữ liệu sai ✓
+- Màn hình ③ hiện đúng thời điểm đồng bộ và cảnh báo khi cache cũ ✓
+- Không có đường đi nào cho phép gửi `?sku=` rỗng (có test khẳng định điều này) ✓
 
 ## Đánh giá rủi ro
 
@@ -158,6 +183,29 @@ Dùng thống nhất ở mọi nơi: `sku.trim().toLowerCase()`. Bản gốc v�
 - Thông báo lỗi hiển thị cho người dùng phải lược bỏ header xác thực
 - Chỉ dùng phương thức `GET` trong toàn bộ giai đoạn này
 
+## Giới hạn đã biết
+
+| Giới hạn | Tác động | Hướng xử lý |
+|---|---|---|
+| Đồng bộ tăng dần không thấy sản phẩm bị xoá | Sản phẩm đã xoá trên Haravan vẫn nằm trong cache, luật B1 tưởng là còn tồn tại | Chạy đồng bộ đầy đủ định kỳ — chỉ lượt đầy đủ mới dọn các dòng không được chạm tới trong lượt đó |
+| Biến thể chuyển từ sản phẩm A sang B mà Haravan không cập nhật `updated_at` của B | Ở lượt tăng dần, trang chứa A xoá luôn dòng của biến thể đó rồi chèn lại A không có nó → biến thể biến mất khỏi cache, luật B1 báo oan | **Chưa kiểm chứng được** Haravan có cập nhật `updated_at` của B hay không (cần tạo dữ liệu thử, mà công cụ này chỉ đọc). Đồng bộ đầy đủ khắc phục được |
+| `duplicateSkuCount` đếm **số nhóm** SKU trùng, không phải số biến thể dính trùng | Giai đoạn 04 luật B5 phải chọn dùng con số nào | Chốt khi làm B5; đổi câu SQL đếm là xong |
+| `catalog-store.ts` ghi `price: variant.price ?? 0` | Giá thiếu thành 0 thay vì "không biết"; giai đoạn 04 so tiền có thể so nhầm với 0 | Store dev luôn trả `price` là số nên chưa gặp. Muốn phân biệt thì phải đổi cột sang `Float?`, cần migration — quyết trước khi làm nhóm luật C |
+| Ba điểm nhỏ từ đợt rà soát mã nguồn | `noteHeader` chỉ dốc cạn bình chứa của mình chứ chưa giãn nhịp theo tốc độ rỉ của máy chủ; `catalog-index` không gộp các lượt nạp trùng lúc cache lạnh; `MAX_BACKOFF_MS` cố định 30 giây nên `Retry-After` lớn hơn không được tôn trọng trọn vẹn | Hiện không ảnh hưởng vì chỉ chạy 3 lượt/giây, dưới mức rỉ 4/giây, và mỗi lúc chỉ một lượt đồng bộ. Xem lại khi giai đoạn 06 có thêm bên gọi thứ hai |
+
+## Việc chuyển tiếp cho giai đoạn sau
+
+**Giai đoạn 03 (độc lập với phase này):** có thể chạy song song; kết quả là mô hình `PromotionProgram[]` để phase 04 dùng.
+
+**Giai đoạn 04 (bộ máy luật):** `CatalogIndex` sẵn sàng, `bySku(sku)` trả `CatalogEntry[]` (mảng vì SKU có thể trùng). Nhóm B dùng để kiểm SKU tồn tại, phát hiện SKU trùng, và truy các trường `price`, `publishedAt`, `notAllowPromotion`.
+
+**Giai đoạn 06 (màn đối soát):** `promotion-fetcher.ts` **chưa viết** — kế hoạch có nêu trong phần Kiến trúc nhưng danh sách việc thì không, và chỉ giai đoạn 06 mới dùng tới. Viết khi làm giai đoạn 06, dùng lại `HaravanClient` sẵn có.
+
+**Việc cần kiểm chứng trước khi đi tiếp:**
+- [ ] Chạy đồng bộ đầy đủ trên store thật có vài nghìn sản phẩm, đo thời gian so với ngân sách 30 giây
+- [x] ~~Xác định thứ tự sắp xếp của `products.json`~~ — đã đo 2026-08-17: **`id` giảm dần**
+- [ ] Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích khi biến thể chuyển sản phẩm hay không
+
 ## Bước kế tiếp
 
-Giai đoạn 04 dùng `CatalogIndex` cho nhóm luật B. Giai đoạn 06 dùng `promotion-fetcher.ts`.
+Mở khoá giai đoạn 03 (Đọc Excel) và 04 (Bộ máy luật). Giai đoạn 03 độc lập; giai đoạn 04 chờ 03 + 02 (đã xong).
