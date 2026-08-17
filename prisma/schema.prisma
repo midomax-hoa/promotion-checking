@@ -1,0 +1,98 @@
+// Prisma 7: the connection URL lives in prisma.config.ts, not here.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Catalog cache pulled from Haravan.
+/// Keyed by variantId because Haravan allows duplicate and null SKUs.
+model VariantCache {
+  variantId      BigInt  @id
+  productId      BigInt
+  sku            String?
+  barcode        String?
+  productTitle   String
+  variantTitle   String?
+  price          Float
+  compareAtPrice Float?
+  inventoryQty   Int?
+
+  // Fields taken from the parent product.
+  publishedAt       DateTime? // null = not published yet -> rule B2
+  notAllowPromotion Boolean   @default(false) // product excluded from promotions -> rule B6
+  publishedScope    String? // 'global' | 'pos' | null - stored, not used yet
+
+  syncedAt DateTime
+
+  @@index([sku])
+  @@index([productId])
+}
+
+model SyncState {
+  id                Int       @id @default(1)
+  lastFullSyncAt    DateTime?
+  lastCursor        DateTime? // feeds updated_at_min on the next incremental sync
+  productCount      Int       @default(0)
+  variantCount      Int       @default(0)
+  blankSkuCount     Int       @default(0)
+  duplicateSkuCount Int       @default(0)
+}
+
+model CheckRun {
+  id             String   @id @default(cuid())
+  mode           String // "check" | "reconcile"
+  fileName       String // original upload name
+  storedFileName String? // name inside UPLOAD_DIR; null = cleaned up by retention
+  fileHash       String
+  createdAt      DateTime @default(now())
+
+  totalSheets   Int
+  totalRows     Int
+  totalPrograms Int
+  countCritical Int @default(0)
+  countDanger   Int @default(0)
+  countWarn     Int @default(0)
+
+  catalogSyncedAt DateTime? // catalog freshness snapshot at run time
+  findings        Finding[]
+
+  @@index([createdAt]) // history list, newest first
+  @@index([fileHash]) // "this file was already checked" lookup
+}
+
+model Finding {
+  id          String   @id @default(cuid())
+  runId       String
+  run         CheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ruleCode    String
+  severity    String // "critical" | "danger" | "warn"
+  sheetName   String?
+  rowNumber   Int? // real Excel row number, header row included
+  programName String?
+  sku         String?
+  message     String
+  suggestion  String?
+
+  @@index([runId, severity])
+  @@index([runId, ruleCode])
+  @@index([runId, programName])
+}
+
+model RuleConfig {
+  code      String   @id // "A1", "B1", ...
+  groupCode String // "A".."F"
+  title     String
+  enabled   Boolean  @default(true)
+  severity  String
+  params    Json? // per-rule thresholds
+  updatedAt DateTime @updatedAt
+}
+
+model AppSetting {
+  key   String @id
+  value String
+}
