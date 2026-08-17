@@ -49,8 +49,10 @@ describe('rule catalog', () => {
 })
 
 describe('app settings catalog', () => {
-  it('declares 7 settings with unique keys', () => {
-    expect(DEFAULT_APP_SETTINGS).toHaveLength(7)
-    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(7)
+  // 7 from phase 01, plus haravan.max_attempts, catalog.cursor_overlap_ms and
+  // catalog.sync_shortfall_tolerance added with the catalog sync in phase 02.
+  it('declares 10 settings with unique keys', () => {
+    expect(DEFAULT_APP_SETTINGS).toHaveLength(10)
+    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(10)
   })
 })

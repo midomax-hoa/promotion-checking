@@ -15,6 +15,9 @@ export const APP_SETTING_KEYS = {
   haravanApiBase: 'haravan.api_base',
   haravanPageSize: 'haravan.page_size',
   haravanRequestsPerSecond: 'haravan.requests_per_second',
+  haravanMaxAttempts: 'haravan.max_attempts',
+  catalogCursorOverlapMs: 'catalog.cursor_overlap_ms',
+  catalogShortfallTolerance: 'catalog.sync_shortfall_tolerance',
   reconcileRecheckDelayMs: 'reconcile.recheck_delay_ms',
   reportMaxRowsPerPage: 'report.max_rows_per_page',
   moneyToleranceVnd: 'check.money_tolerance_vnd',
@@ -47,6 +50,23 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
     key: APP_SETTING_KEYS.haravanRequestsPerSecond,
     value: '3',
     description: 'Số lượt gọi mỗi giây, đặt dưới mức rỉ 4/s cho an toàn',
+  },
+  {
+    key: APP_SETTING_KEYS.haravanMaxAttempts,
+    value: '4',
+    description: 'Số lần thử tối đa cho một lượt gọi API trước khi coi là thất bại',
+  },
+  {
+    key: APP_SETTING_KEYS.catalogCursorOverlapMs,
+    value: '300000',
+    description:
+      'Lùi mốc đồng bộ tăng dần lại chừng này mili giây, tránh bỏ sót sản phẩm sửa ngay lúc đang đồng bộ',
+  },
+  {
+    key: APP_SETTING_KEYS.catalogShortfallTolerance,
+    value: '0',
+    description:
+      'Số sản phẩm được phép thiếu so với products/count.json mà vẫn coi là đồng bộ đầy đủ',
   },
   {
     key: APP_SETTING_KEYS.reconcileRecheckDelayMs,

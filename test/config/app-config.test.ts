@@ -30,6 +30,23 @@ describe('buildAppConfig', () => {
     expect(withSettings({ [APP_SETTING_KEYS.haravanPageSize]: 'abc' }).haravanPageSize).toBe(50)
   })
 
+  it('refuses a page size above 50, which Haravan clamps anyway', () => {
+    // A larger value would make a clamped 50-item page look like the last page,
+    // stopping the sync early and letting the cleanup wipe the rest of the cache.
+    expect(withSettings({ [APP_SETTING_KEYS.haravanPageSize]: '250' }).haravanPageSize).toBe(50)
+    expect(withSettings({ [APP_SETTING_KEYS.haravanPageSize]: '20' }).haravanPageSize).toBe(20)
+  })
+
+  it('allows zero for tolerances and delays but not for counts', () => {
+    expect(
+      withSettings({ [APP_SETTING_KEYS.catalogCursorOverlapMs]: '0' }).catalogCursorOverlapMs,
+    ).toBe(0)
+    expect(
+      withSettings({ [APP_SETTING_KEYS.catalogShortfallTolerance]: '0' }).catalogShortfallTolerance,
+    ).toBe(0)
+    expect(withSettings({ [APP_SETTING_KEYS.haravanMaxAttempts]: '0' }).haravanMaxAttempts).toBe(4)
+  })
+
   it('refuses to point the Haravan base at a foreign host', () => {
     const cases = [
       'https://evil.example.com',

@@ -16,6 +16,8 @@ import {
 
 const positiveInt = z.coerce.number().int().positive()
 const positiveNumber = z.coerce.number().positive()
+/** Zero is a meaningful setting for tolerances and delays, unlike for a page size. */
+const nonNegativeInt = z.coerce.number().int().nonnegative()
 
 /** Must stay on Haravan, otherwise the API token would be sent to a foreign host. */
 const haravanBaseUrl = z.string().refine((value) => {
@@ -35,8 +37,13 @@ const haravanBaseUrl = z.string().refine((value) => {
 const APP_CONFIG_SCHEMA = {
   catalogMaxAgeHours: [APP_SETTING_KEYS.catalogMaxAgeHours, positiveInt.max(24 * 365)],
   haravanApiBase: [APP_SETTING_KEYS.haravanApiBase, haravanBaseUrl],
-  haravanPageSize: [APP_SETTING_KEYS.haravanPageSize, positiveInt.max(250)],
+  // Haravan clamps `limit` to 50 server-side (verified 2026-08-17). A larger
+  // value here would make the paginator think a full page is a short one.
+  haravanPageSize: [APP_SETTING_KEYS.haravanPageSize, positiveInt.max(50)],
   haravanRequestsPerSecond: [APP_SETTING_KEYS.haravanRequestsPerSecond, positiveNumber.max(4)],
+  haravanMaxAttempts: [APP_SETTING_KEYS.haravanMaxAttempts, positiveInt.max(10)],
+  catalogCursorOverlapMs: [APP_SETTING_KEYS.catalogCursorOverlapMs, nonNegativeInt.max(86_400_000)],
+  catalogShortfallTolerance: [APP_SETTING_KEYS.catalogShortfallTolerance, nonNegativeInt.max(10_000)],
   reconcileRecheckDelayMs: [APP_SETTING_KEYS.reconcileRecheckDelayMs, positiveInt.max(120_000)],
   reportMaxRowsPerPage: [APP_SETTING_KEYS.reportMaxRowsPerPage, positiveInt.max(1000)],
   moneyToleranceVnd: [APP_SETTING_KEYS.moneyToleranceVnd, positiveNumber.max(1000)],
