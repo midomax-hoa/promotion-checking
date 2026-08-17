@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -11,10 +12,27 @@ export const metadata: Metadata = {
   description: 'Công cụ kiểm tra và đối soát file import khuyến mãi Haravan',
 }
 
+/** Screens are added phase by phase; only the ones that exist are linked. */
+const NAV_ITEMS = [
+  { href: '/', label: 'Trang chủ' },
+  { href: '/dong-bo', label: 'Đồng bộ danh mục' },
+]
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi">
-      <body className={`${sans.variable} ${mono.variable} antialiased`}>{children}</body>
+      <body className={`${sans.variable} ${mono.variable} antialiased`}>
+        <nav className="border-b">
+          <div className="mx-auto flex max-w-4xl gap-4 p-4 text-sm">
+            {NAV_ITEMS.map((item) => (
+              <Link key={item.href} href={item.href} className="hover:underline">
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+        {children}
+      </body>
     </html>
   )
 }
