@@ -14,6 +14,7 @@ import { hasSpreadsheetSignature, readWorkbook } from './excel-reader'
 import { groupPrograms } from './program-grouper'
 import { isEmptyRow, normalizeRow } from './row-normalizer'
 import type { PromotionRow, SheetSummary, WorkbookReadResult } from './types'
+import type { RawRow } from './excel-reader'
 
 /** Matches the upload cap enforced at the API boundary. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -35,6 +36,20 @@ function assertReadable(bytes: Uint8Array): void {
   }
 }
 
+/**
+ * Blank rows with data both above and below them. Leading and trailing blanks
+ * are ignored on purpose - only a gap inside the block is worth reporting.
+ */
+function interleavedBlankRows(dataRows: readonly RawRow[]): number[] {
+  const lastFilled = dataRows.findLastIndex((row) => !isEmptyRow(row))
+  const firstFilled = dataRows.findIndex((row) => !isEmptyRow(row))
+  if (firstFilled === -1) return []
+  return dataRows
+    .slice(firstFilled, lastFilled)
+    .filter((row) => isEmptyRow(row))
+    .map((row) => row.rowNumber)
+}
+
 export async function readPromotionWorkbook(
   bytes: Uint8Array,
   fileName: string,
@@ -48,13 +63,14 @@ export async function readPromotionWorkbook(
 
   for (const sheet of workbook.sheets) {
     const mapping = mapColumns(sheet.headerCells)
-    // Blank spacer rows are counted for rule A5 but produce no promotion row.
+    // Blank spacer rows are recorded for rule A5 but produce no promotion row.
     const dataRows = sheet.dataRows.filter((row) => !isEmptyRow(row))
 
     sheets.push({
       name: sheet.name,
       rowCount: dataRows.length,
       mappedColumns: mapping.matchedHeaders,
+      blankRowNumbers: interleavedBlankRows(sheet.dataRows),
     })
 
     if (mapping.missingRequired.length > 0) {

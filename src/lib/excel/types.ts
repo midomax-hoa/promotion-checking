@@ -75,6 +75,13 @@ export type SheetSummary = {
   rowCount: number
   /** Field name -> the header text it matched, or null when unmatched. */
   mappedColumns: Record<string, string | null>
+  /**
+   * Excel row numbers of blank rows sitting *between* data rows. Trailing blanks
+   * are excluded because they are how a spreadsheet normally ends; a blank in
+   * the middle usually means the rows below it were pasted in separately, which
+   * is what rule A5 warns about.
+   */
+  blankRowNumbers: number[]
 }
 
 export type WorkbookReadResult = {

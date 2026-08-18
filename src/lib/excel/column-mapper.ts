@@ -55,6 +55,28 @@ const COLUMN_KEYWORDS: Record<ColumnField, readonly string[]> = {
 
 export const COLUMN_FIELDS = Object.keys(COLUMN_KEYWORDS) as ColumnField[]
 
+/**
+ * Header text as the user knows it. Messages must name the column the way it
+ * appears in their file, otherwise "field `discountTypeRaw` is missing" sends
+ * them looking for a column that does not exist.
+ */
+export const COLUMN_LABELS: Record<ColumnField, string> = {
+  productCode: 'Mã',
+  sku: 'Mã hiệu',
+  productName: 'Mặt hàng',
+  variantName: 'Đặc tính',
+  unit: 'Bộ đóng gói',
+  listPrice: 'Giá niêm yết',
+  usageLimit: 'Số dư',
+  priceAfter: 'Giá sau giảm',
+  discountAmount: 'Số tiền giảm',
+  discountPercent: 'Phần trăm giảm',
+  discountTypeRaw: 'Kiểu ctkm',
+  startAt: 'Thời gian bắt đầu',
+  endAt: 'Thời gian kết thúc',
+  programName: 'Tên ctkm',
+}
+
 /** Without these three a sheet says nothing useful; rule A1 reports them. */
 export const REQUIRED_FIELDS: readonly ColumnField[] = ['sku', 'discountTypeRaw', 'programName']
 
