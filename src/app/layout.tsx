@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { ThemeScript } from '@/components/theme/theme-script'
+import { ThemeToggle } from '@/components/theme/theme-toggle'
 import './globals.css'
 
 // Geist has no `vietnamese` subset, so Vietnamese diacritics would fall back to a system font.
@@ -26,15 +28,23 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     // The font variables belong on <html>, not <body>: globals.css applies
     // `font-sans` to <html>, and a custom property set on the child is
     // invisible to the parent - the whole page fell back to Times New Roman.
-    <html lang="vi" className={`${sans.variable} ${mono.variable}`}>
+    // suppressHydrationWarning: the head script sets the theme class on <html>
+    // before React arrives, so the attribute it sees never matches the server's.
+    <html lang="vi" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body className="antialiased">
         <nav className="border-b">
-          <div className="mx-auto flex max-w-4xl gap-4 p-4 text-sm">
+          <div className="mx-auto flex max-w-4xl items-center gap-4 p-4 text-sm">
             {NAV_ITEMS.map((item) => (
               <Link key={item.href} href={item.href} className="hover:underline">
                 {item.label}
               </Link>
             ))}
+            <span className="ml-auto">
+              <ThemeToggle />
+            </span>
           </div>
         </nav>
         {children}
