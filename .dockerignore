@@ -1,0 +1,55 @@
+# Written before the first build on purpose: without it the 177 MB
+# check-promotion/ folder is shipped to the daemon as build context.
+
+# Installed and generated inside the image instead
+node_modules
+src/generated
+.next
+out
+build
+*.tsbuildinfo
+
+# Version control and CI metadata
+.git
+.gitignore
+
+# Secrets. The example file is kept so the image documents its own inputs.
+.env
+.env.*
+!.env.production.example
+
+# Internal import software - reference only, not part of this project
+check-promotion/
+
+# Real business data
+*.xlsx
+.uploads/
+.test-uploads/
+uploads/
+backups/
+*.dump
+*.sql.gz
+
+# Not needed to build or run the app
+plans/
+docs/
+test/
+vitest.config.mts
+Dockerfile
+.dockerignore
+docker-compose*.yml
+Caddyfile
+scripts/
+
+# AI assistant workspaces
+.claude/
+.opencode/
+.agents/
+.agent/
+.cursor/
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*
+~$*

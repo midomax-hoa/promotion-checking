@@ -1,0 +1,96 @@
+# The database is NOT declared here on purpose: it lives on a separate,
+# shared server and is reached through DATABASE_URL only. Nothing in this file
+# may create, drop or own it.
+#
+# Startup order: migrate (runs once, must exit 0) -> app (must go healthy) -> caddy.
+#
+# ALWAYS pass --env-file .env.production. Compose reads `env_file:` for the
+# container, but `${...}` substitution below comes from --env-file (or a plain
+# `.env`, which here holds the developer machine settings instead). Without the
+# flag the build stops at "thiếu APP_DOMAIN". The npm scripts already pass it.
+
+services:
+  migrate:
+    build:
+      context: .
+      target: migrator
+    env_file: .env.production
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?thiếu DATABASE_URL - chép .env.production.example thành .env.production}
+    restart: "no"
+    logging: &log-opts
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        ALLOWED_ORIGINS: ${APP_DOMAIN:?thiếu APP_DOMAIN}
+    env_file: .env.production
+    environment:
+      # Points at the volume below, not at the working directory.
+      UPLOAD_DIR: /data/uploads
+      # Runtime copy of the build argument. Harmless when the baked-in value
+      # already matches, and it makes the mismatch visible if it does not.
+      ALLOWED_ORIGINS: ${APP_DOMAIN}
+    expose:
+      - "3000" # compose network only - deliberately not published to the host
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    logging: *log-opts
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?thiếu APP_DOMAIN}
+      # Empty = Let's Encrypt automatically. "tls internal" = Caddy's own CA.
+      # "tls /etc/caddy/cert.pem /etc/caddy/key.pem" = certificate supplied by IT.
+      CADDY_TLS: ${CADDY_TLS-}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # TLS certificates - losing this volume means re-issuing them
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *log-opts
+
+  # Off by default. Run on demand:
+  #   docker compose --profile tools run --rm dbtools "pg_dump ..."
+  dbtools:
+    image: postgres:18-alpine
+    profiles: ["tools"]
+    env_file: .env.production
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - ./backups:/backups
+      # Read-only: this service backs the uploads up, it never edits them.
+      # Mounted here so the scripts need not guess the prefixed volume name.
+      - uploads:/data/uploads:ro
+    entrypoint: ["sh", "-c"]
+    command: ["echo 'dùng: docker compose --profile tools run --rm dbtools \"pg_dump ...\"'"]
+
+volumes:
+  uploads:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,14 @@
+# Development happens on Windows with core.autocrlf=true, deployment runs on
+# Linux. Anything the Linux side executes or parses must stay LF: a shell
+# script checked out with CRLF fails as "bad interpreter: /bin/sh^M", and the
+# same line endings break a Dockerfile RUN continuation.
+*.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+docker-compose*.yml text eol=lf
+.dockerignore text eol=lf
+# Templates copied by hand on the server, so they carry the same requirement.
+*.example text eol=lf
+
+# Excel test fixtures are binary; a line-ending rewrite corrupts them.
+*.xlsx binary

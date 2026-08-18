@@ -5,6 +5,10 @@
 backups/
 *.dump
 *.sql.gz
+*.tar.gz
+
+# Per-machine compose tweaks. Only the .example is tracked.
+docker-compose.override.yml
 
 # Internal import software - reference only, not part of this project
 check-promotion/

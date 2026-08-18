@@ -1,0 +1,35 @@
+# Caddy substitutes {$VAR} before parsing, so CADDY_TLS expands to a whole
+# directive - or to nothing at all, which is the Let's Encrypt default.
+#
+#   CADDY_TLS=                                          public domain, Caddy obtains and renews a certificate itself
+#   CADDY_TLS=tls internal                              internal-only domain; Caddy runs its own CA and every client
+#                                                       machine must trust its root, otherwise the browser still warns
+#   CADDY_TLS=tls /etc/caddy/cert.pem /etc/caddy/key.pem  certificate supplied by IT; mount it into the caddy service
+#                                                         and track its expiry yourself
+#
+# Set the value in .env.production. Changing it needs no rebuild, only
+# `docker compose --env-file .env.production up -d caddy`.
+
+{$APP_DOMAIN} {
+	{$CADDY_TLS}
+
+	reverse_proxy app:3000 {
+		# A 4.000 row workbook takes a while to read and run 31 rules over.
+		# Shorter than the route's own 120s budget would cut it off mid-check.
+		transport http {
+			read_timeout 180s
+		}
+	}
+
+	# The app caps uploads at 20 MB; the extra 5 MB covers multipart framing.
+	request_body {
+		max_size 25MB
+	}
+
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

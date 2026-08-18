@@ -1,0 +1,26 @@
+# Copy to docker-compose.override.yml to adjust the stack for one machine.
+# Compose picks the override up automatically; it is gitignored, so local
+# tweaks never travel to another server.
+#
+# Everything below is commented out on purpose - uncomment only what you need.
+
+services:
+  # app:
+  #   # Reach the app directly, bypassing Caddy. Useful when debugging a TLS or
+  #   # proxy problem: if it works on :3000 but not on :443, the fault is Caddy's.
+  #   # Remove again afterwards - the production stack publishes Caddy only.
+  #   ports:
+  #     - "127.0.0.1:3000:3000"
+
+  # caddy:
+  #   # A domain that only resolves through /etc/hosts cannot pass a Let's
+  #   # Encrypt challenge. Set CADDY_TLS=tls internal in .env.production for
+  #   # that case rather than editing the Caddyfile.
+  #   ports:
+  #     - "8080:80"
+  #     - "8443:443"
+
+  # migrate:
+  #   # Skip the seed and apply migrations only, when the rule defaults on this
+  #   # database were deliberately tuned and must not be touched.
+  #   command: ["-c", "npx prisma migrate deploy"]
