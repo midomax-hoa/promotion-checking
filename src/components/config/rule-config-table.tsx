@@ -16,6 +16,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { SEVERITY_META, SEVERITY_ORDER } from '@/components/check/severity-badge'
 import { INITIAL_CONFIG_STATE } from '@/lib/config/config-form-state'
 import { ruleField, sameRuleConfig } from '@/lib/config/rule-config-form'
+import { ruleGroupAnchor } from '@/lib/config/rule-group-anchor'
 import {
   GROUP_CODES,
   GROUP_TITLES,
@@ -59,9 +60,15 @@ export function RuleConfigTable({ configs }: { configs: readonly RuleConfigInput
           ).length
 
           return (
-            <section key={groupCode} className="overflow-hidden rounded-lg border">
+            <section
+              key={groupCode}
+              id={ruleGroupAnchor(groupCode)}
+              // Offset so a jump does not land the heading underneath the
+              // sticky group list that sent the user here.
+              className="scroll-mt-20 overflow-hidden rounded-lg border"
+            >
               <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
-                <h2 className="text-sm font-semibold">{GROUP_TITLES[groupCode]}</h2>
+                <h3 className="text-sm font-semibold">{GROUP_TITLES[groupCode]}</h3>
                 <GroupToggle
                   groupCode={groupCode}
                   enabledCount={enabledCount}

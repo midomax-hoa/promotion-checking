@@ -60,7 +60,7 @@ export default async function ReconcilePage() {
                 href={`/doi-soat/${run.id}`}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm last:border-b-0 hover:bg-muted/50"
               >
-                <span className="min-w-40 flex-1 font-medium">{run.fileName}</span>
+                <span className="min-w-40 flex-1 truncate font-medium">{run.fileName}</span>
                 <span className="text-muted-foreground">{formatDateTime(run.createdAt)}</span>
                 <span className="tabular-nums text-muted-foreground">
                   {NUMBER.format(run.totalPrograms)} ctkm

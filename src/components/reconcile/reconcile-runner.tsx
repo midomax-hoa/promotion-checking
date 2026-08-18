@@ -13,6 +13,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { MAX_UPLOAD_MB } from '@/lib/excel/upload-limits'
@@ -110,7 +111,7 @@ export function ReconcileRunner({ sources }: { sources: readonly ReconcileSource
                 key={source.id}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm last:border-b-0"
               >
-                <span className="min-w-40 flex-1 font-medium">{source.fileName}</span>
+                <span className="min-w-40 flex-1 truncate font-medium">{source.fileName}</span>
                 <span className="text-muted-foreground">{formatDateTime(source.createdAt)}</span>
                 <span className="tabular-nums text-muted-foreground">
                   {source.totalPrograms} ctkm
@@ -158,6 +159,7 @@ export function ReconcileRunner({ sources }: { sources: readonly ReconcileSource
 
       {running || status ? (
         <Alert>
+          {running ? <Loader2 aria-hidden className="size-4 animate-spin text-primary" /> : null}
           <AlertDescription>
             {running ? 'Đang đối soát... ' : ''}
             {status}

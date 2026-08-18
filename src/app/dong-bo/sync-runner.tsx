@@ -2,10 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { readNdjson } from '@/lib/ndjson-stream'
+
+/** Six-figure product counts are unreadable without separators. */
+const NUMBER = new Intl.NumberFormat('vi-VN')
 
 /**
  * Runs a sync and shows progress while it happens.
@@ -80,6 +84,7 @@ export function SyncRunner() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => start(false)} disabled={running}>
+          {running ? <Loader2 aria-hidden className="animate-spin" /> : null}
           {running ? 'Đang đồng bộ...' : 'Đồng bộ tăng dần'}
         </Button>
         <Button variant="outline" onClick={() => start(true)} disabled={running}>
@@ -89,8 +94,12 @@ export function SyncRunner() {
 
       {progress ? (
         <Progress value={percent}>
-          <ProgressLabel>
-            Trang {progress.page} · {progress.products} sản phẩm · {progress.variants} biến thể
+          <ProgressLabel className="flex items-center gap-2">
+            {running ? <Loader2 aria-hidden className="size-3.5 animate-spin text-primary" /> : null}
+            <span className="tabular-nums">
+              Trang {progress.page} · {NUMBER.format(progress.products)} sản phẩm ·{' '}
+              {NUMBER.format(progress.variants)} biến thể
+            </span>
           </ProgressLabel>
           <ProgressValue />
         </Progress>
@@ -98,12 +107,16 @@ export function SyncRunner() {
 
       {result ? (
         <Alert>
+          <CheckCircle2 aria-hidden className="size-4 text-emerald-700 dark:text-emerald-400" />
           <AlertDescription>
-            Xong: {result.products} sản phẩm, {result.variants} biến thể, {result.pages} trang,{' '}
-            {(result.durationMs / 1000).toFixed(1)} giây
-            {result.removed > 0 ? `, dọn ${result.removed} biến thể không còn trên Haravan` : ''}.
+            Xong: {NUMBER.format(result.products)} sản phẩm, {NUMBER.format(result.variants)} biến
+            thể, {result.pages} trang, {(result.durationMs / 1000).toFixed(1)} giây
+            {result.removed > 0
+              ? `, dọn ${NUMBER.format(result.removed)} biến thể không còn trên Haravan`
+              : ''}
+            .
             {result.expectedProducts !== null && result.expectedProducts !== result.products
-              ? ` Cảnh báo: Haravan báo có ${result.expectedProducts} sản phẩm, chỉ kéo về được ${result.products}.`
+              ? ` Cảnh báo: Haravan báo có ${NUMBER.format(result.expectedProducts)} sản phẩm, chỉ kéo về được ${NUMBER.format(result.products)}.`
               : ''}
           </AlertDescription>
         </Alert>

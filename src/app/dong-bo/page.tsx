@@ -67,10 +67,10 @@ export default async function CatalogSyncPage() {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border p-3">
+    <div className="flex flex-col gap-1 rounded-xl border bg-card p-3.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold tabular-nums">{value}</span>
-      {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
+      <span className="text-xl leading-tight font-semibold tabular-nums">{value}</span>
+      {hint ? <span className="text-xs text-pretty text-muted-foreground">{hint}</span> : null}
     </div>
   )
 }

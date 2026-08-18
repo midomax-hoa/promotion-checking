@@ -42,13 +42,13 @@ export function AppSettingForm({ values }: { values: Record<string, string> }) {
             <div
               key={setting.key}
               className={cn(
-                'flex flex-col gap-1 border-b px-3 py-2 last:border-b-0',
-                !isDefault && 'bg-primary/5',
+                'flex flex-col gap-1 border-b px-3 py-2.5 transition-colors last:border-b-0 hover:bg-muted/40',
+                !isDefault && 'bg-primary/5 hover:bg-primary/10',
               )}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <label htmlFor={name} className="flex-1 text-sm">
-                  {setting.description}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <label htmlFor={name} className="min-w-0 flex-1 text-sm">
+                  <span className="font-medium">{setting.description}</span>
                   <span className="block font-mono text-xs text-muted-foreground">
                     {setting.key}
                   </span>
@@ -58,7 +58,7 @@ export function AppSettingForm({ values }: { values: Record<string, string> }) {
                   name={name}
                   defaultValue={value}
                   aria-invalid={error != null}
-                  className={cn('h-7 w-64 tabular-nums', !isDefault && 'border-primary')}
+                  className={cn('h-8 w-56 tabular-nums', !isDefault && 'border-primary')}
                 />
                 {isDefault ? null : (
                   <button

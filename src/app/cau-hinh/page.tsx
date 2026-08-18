@@ -1,5 +1,6 @@
 import { AppSettingForm } from '@/components/config/app-setting-form'
 import { RuleConfigTable } from '@/components/config/rule-config-table'
+import { RuleGroupJump } from '@/components/config/rule-group-jump'
 import { PageShell } from '@/components/shell/page-shell'
 import { prisma } from '@/lib/db/prisma'
 import { loadRuleConfigs } from '@/lib/rules/rule-config-store'
@@ -39,6 +40,7 @@ export default async function ConfigPage() {
           Tắt một luật thì luật đó không còn xuất hiện trong kết quả kiểm tra. Đổi mức cảnh báo chỉ
           đổi cách xếp loại, không đổi cách phát hiện.
         </p>
+        <RuleGroupJump />
         <RuleConfigTable configs={configs} />
       </section>
 

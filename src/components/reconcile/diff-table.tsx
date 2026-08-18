@@ -26,6 +26,11 @@ function MatchBlock({ row, options }: { row: ReconcileMatchRecord; options: Diff
     <section className="flex flex-col gap-2 border-b p-4 last:border-b-0">
       <header className="flex flex-wrap items-center gap-2">
         <h3 className="flex-1 text-sm font-semibold">{row.programName}</h3>
+        {differing > 0 ? (
+          <span className="rounded-md bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900 dark:bg-red-950 dark:text-red-100">
+            {differing} mục lệch
+          </span>
+        ) : null}
         <MatchStatusBadge status={row.status} />
         {row.excelRowCount != null ? (
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -37,41 +42,53 @@ function MatchBlock({ row, options }: { row: ReconcileMatchRecord; options: Diff
         ) : null}
       </header>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-muted-foreground">
-            <th className="w-32 py-1 font-medium">Mục</th>
-            <th className="py-1 font-medium">Trong file Excel</th>
-            <th className="py-1 font-medium">Trên Haravan</th>
-            <th className="w-40 py-1 font-medium">Chênh lệch</th>
-          </tr>
-        </thead>
-        <tbody>
-          {fields.map((field) => (
-            <tr key={field.label} className="border-t">
-              <td className="py-1.5 pr-2 text-muted-foreground">{field.label}</td>
-              <td className="py-1.5 pr-2">{field.excel}</td>
-              <td
+      {/* The comparison is the point of this screen, so the two value columns
+          are given equal width and the rest is trimmed around them. */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-160 text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="w-36 py-1 pr-3 font-medium whitespace-nowrap">Mục</th>
+              <th className="w-[38%] py-1 pr-3 font-medium">Trong file Excel</th>
+              <th className="w-[38%] py-1 pr-3 font-medium">Trên Haravan</th>
+              <th className="w-24 py-1 font-medium whitespace-nowrap">Chênh lệch</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((field) => (
+              <tr
+                key={field.label}
                 className={cn(
-                  'py-1.5 pr-2',
-                  field.differs && 'font-semibold text-red-700 dark:text-red-300',
+                  'border-t',
+                  // Tinting the whole row is what makes a single wrong date
+                  // findable in a block of eight agreeing ones.
+                  field.differs && 'bg-red-50 dark:bg-red-950/30',
                 )}
               >
-                {field.haravan}
-              </td>
-              <td className="py-1.5 text-xs">
-                {field.differs ? (
-                  <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-900 dark:bg-red-950 dark:text-red-100">
-                    lệch
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground">{field.label}</td>
+                <td className="py-1.5 pr-3 break-words">{field.excel}</td>
+                <td
+                  className={cn(
+                    'py-1.5 pr-3 break-words',
+                    field.differs && 'font-semibold text-red-700 dark:text-red-300',
+                  )}
+                >
+                  {field.haravan}
+                </td>
+                <td className="py-1.5 text-xs">
+                  {field.differs ? (
+                    <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-900 dark:bg-red-950 dark:text-red-100">
+                      lệch
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {row.status === 'not-found' ? (
         <p className="text-xs text-muted-foreground">
