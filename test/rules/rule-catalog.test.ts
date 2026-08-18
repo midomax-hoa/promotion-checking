@@ -34,7 +34,7 @@ describe('rule catalog', () => {
       RULE_CATALOG.filter((r) => r.defaultParams).map((r) => [r.code, r.defaultParams]),
     )
     expect(params).toEqual({
-      B1: { suggestMaxDistance: 2 },
+      B1: { suggestMaxDistance: 2, suggestMaxComparisons: 2_000_000 },
       C4: { maxDiscountPercent: 70 },
       C5: { maxPercentValue: 1 },
       C7: { roundingUnit: 1000 },
