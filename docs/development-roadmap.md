@@ -9,7 +9,7 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 01 | Nền tảng dự án & lược đồ dữ liệu | — | ✅ Xong 2026-08-17 |
 | 02 | Haravan client & đồng bộ danh mục | 01 | ✅ Xong 2026-08-17 |
 | 03 | Đọc & chuẩn hoá file Excel | 01 | ✅ Xong 2026-08-18 |
-| 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ⬜ Chưa làm |
+| 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ✅ Xong 2026-08-18 |
 | 05 | Màn kiểm tra file & xuất báo cáo | 04 | ⬜ Chưa làm |
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ⬜ Chưa làm |
 | 07 | Màn cấu hình luật & tài liệu | 01 | ⬜ Chưa làm |
@@ -37,6 +37,16 @@ Kiểm chứng trên store dev: 74 sản phẩm / 937 biến thể trong 0,7–1
 
 Phải né **ba lỗi của `exceljs`** — chi tiết ở [`system-architecture.md`](system-architecture.md#tầng-đọc-excel-giai-đoạn-03).
 
+### Giai đoạn 04 — Bộ máy luật nhóm A–E (2026-08-18)
+
+31 luật, mỗi luật một file hàm thuần, gom qua `registry.ts` và chạy bằng `engine.ts`. Mức cảnh báo, bật/tắt và ngưỡng đọc từ bảng `RuleConfig`.
+
+Nguyên tắc cứng: **thiếu dữ liệu đầu vào thì báo là thiếu**. Luật khai báo `requires`; cache danh mục rỗng thì 5 luật nhóm B bị bỏ qua và phát cảnh báo `SYS-CATALOG-EMPTY`, thay vì báo cả 3.929 mã hiệu là "không tồn tại".
+
+Đối chiếu file thật: đúng **279 dòng** giảm 0đ của `2608GST0K`, C1/E1/E2 sạch, chạy ~30 ms. 139 test cho tầng này, 340 test toàn dự án.
+
+Rủi ro Levenshtein đã thành sự thật và đã xử lý — chi tiết ở [`system-architecture.md`](system-architecture.md#bộ-máy-luật-giai-đoạn-04).
+
 Chi tiết kiến trúc ở [`system-architecture.md`](system-architecture.md).
 
 ## Việc còn treo
@@ -44,7 +54,9 @@ Chi tiết kiến trúc ở [`system-architecture.md`](system-architecture.md).
 | Việc | Vì sao còn treo | Cần làm gì |
 |---|---|---|
 | Ngân sách 30 giây cho 3.000 sản phẩm | Store dev chỉ có 74 sản phẩm nên chưa đo được | Chạy đồng bộ đầy đủ trên store thật, đo thời gian. Đòn bẩy nếu chậm: nâng `haravan.requests_per_second` tới 4, hoặc nới cửa sổ tải trước |
-| Hành vi `not_allow_promotion` khi bật | Store dev toàn `false` | Cần một sản phẩm thật có cờ này để biết Haravan xử lý ra sao (luật B6) |
+| Hành vi `not_allow_promotion` khi bật | Store dev toàn `false` | Cần một sản phẩm thật có cờ này để biết Haravan xử lý ra sao. Luật B6 tạm để mức `danger`; nâng lên `critical` phải **ghi** lên Haravan (bật cờ thử) nên chờ xác nhận trước khi làm |
+| Luật D8 và E3 chưa chạy với dữ liệu thật | Cần danh sách khuyến mãi đang có trên Haravan, mà `promotion-fetcher.ts` thuộc giai đoạn 06 | Giai đoạn 06 ánh xạ phản hồi API sang kiểu `HaravanPromotion` trong `src/lib/rules/types.ts`. Hiện hai luật nằm trong `skippedRules`, không bị bỏ qua âm thầm |
+| Nhóm B chưa đối chiếu danh mục thật | Store dev không có 3.929 mã hiệu của file mẫu | Đồng bộ cửa hàng thật rồi chạy lại, đo số mã hiệu không tra ra và chất lượng gợi ý của B1 |
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
 | `promotion-fetcher.ts` | Chỉ giai đoạn 06 dùng — YAGNI | Viết khi làm giai đoạn 06, dùng lại `HaravanClient` sẵn có |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |

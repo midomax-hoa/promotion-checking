@@ -2,6 +2,75 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 04: Bộ máy luật (nhóm A–E)
+
+### Thêm mới
+
+**Bộ máy luật** (`src/lib/rules/`)
+
+- `types.ts` — `Rule`, `RuleContext`, `RuleFinding`, `HaravanPromotion`; quy ước phần trăm trong file luôn là **thập phân**
+- `registry.ts` — gom 31 luật, đối chiếu chéo với `rule-catalog.ts` bằng test
+- `engine.ts` — lọc luật theo `RuleConfig`, kiểm tra dữ liệu đầu vào, gom và sắp xếp kết quả
+- `rule-config-store.ts` — đọc `RuleConfig`, giá trị hỏng thì lùi về mặc định trong danh mục luật
+- `run-check.ts` — đầu mối bất đồng bộ: cache danh mục + cấu hình + luật
+- `helpers/` — `levenshtein.ts`, `money.ts`, `date-range.ts`, `row-ref.ts`
+- `group-a-file-structure/` … `group-e-overlap/` — 31 luật, mỗi luật một file
+
+**Kiểm thử** — 139 test trong `test/rules/`, gồm bộ kiểm chứng chạy trên file thật
+
+### Thiếu dữ liệu thì báo là thiếu, không suy ra kết luận
+
+Mỗi luật khai báo dữ liệu ngoài mà nó cần (`requires`). Bộ máy bỏ qua đúng những luật thiếu dữ liệu và ghi vào `skippedRules`:
+
+| Tình huống | Luật bị bỏ qua | Báo gì |
+|---|---|---|
+| Cache danh mục rỗng hoặc chưa từng đồng bộ | B1, B2, B3, B5, B6 | Cảnh báo `SYS-CATALOG-EMPTY` mức `critical` |
+| Chưa nạp danh sách khuyến mãi Haravan | D8, E3 | Ghi vào `skippedRules` |
+
+Không có chốt chặn này thì lần dùng đầu tiên sẽ ra 3.929 cảnh báo sai "SKU không tồn tại".
+
+### Rủi ro Levenshtein đã thành sự thật
+
+Kế hoạch dự phòng bằng "lọc theo độ dài và 3 ký tự đầu". Đo trên file thật cho thấy **chưa đủ**: 3.931 mã hiệu chỉ rơi vào 24 rổ 3 ký tự, rổ lớn nhất ôm 31% — mã của cửa hàng gần như đều bắt đầu bằng `km`.
+
+| Tình huống | Trước | Sau |
+|---|---|---|
+| Danh mục ~59.000 biến thể, **không** chứa mã nào của file | 83 giây | **365 ms** |
+| Danh mục đầy đủ | — | 22 ms |
+| 20 mã sai giữa danh mục đầy đủ | — | 26 ms, 9/20 mã có gợi ý |
+
+Cách xử lý: tham số `suggestMaxComparisons` (mặc định 2.000.000) giới hạn công sức tìm mã gần giống cho cả lượt kiểm tra. Hết hạn mức thì ngừng gợi ý — **cảnh báo vẫn phát đủ**, và phần gợi ý nói thẳng là đã ngừng vì có quá nhiều mã không tra ra.
+
+### Điểm lệch so với kế hoạch
+
+- **C2** bắt thêm ô `Số tiền giảm` để trống trên dòng kiểu "theo số tiền". Chương trình `2608GST0K` có 275 dòng ghi `0` và 4 dòng để trống; cả 279 dòng cùng dẫn tới lỗi 422.
+- **Nhóm B** bỏ qua theo từng luật thay vì trọn gói. B4 chỉ đọc dữ liệu trong file nên vẫn chạy khi cache rỗng.
+- **Nhóm D** báo theo chương trình, không theo dòng — Haravan tạo một chương trình cho mỗi `Tên ctkm`, nên một ngày sai là một lỗi chứ không phải 279 lỗi.
+- **`runRules` đồng bộ**, phần đọc CSDL tách sang `rule-config-store.ts` và `run-check.ts`. Toàn bộ test luật chạy không cần CSDL.
+- **`SheetSummary` thêm `blankRowNumbers`** (sửa code giai đoạn 03) để luật A5 biết dòng trống nằm ở đâu. Chỉ ghi dòng trống nằm giữa vùng dữ liệu.
+
+### Sửa một test chớp tắt của giai đoạn 03
+
+`test/excel/excel-reader.test.ts` khẳng định bộ đọc luồng của `exceljs` *luôn* ném lỗi với file do chính `exceljs` ghi. Đo lại: tuần tự ném lỗi 59/60 lần, song song ném **0/60** — đua tranh trong `exceljs`, tuỳ mỗi vòng lặp sự kiện nhận được bao nhiêu dữ liệu. Test đổi sang khẳng định phần tất định: dù đường nào thắng, `readWorkbook` vẫn trả đúng dữ liệu.
+
+### Số đo trên file thật `promotion.t8.xlsx`
+
+- **C2 bắt đúng 279 dòng** của `2608GST0K`, thông báo nêu rõ Haravan sẽ trả 422
+- **A2 liệt kê cả 2 sheet**: `Key` 3.929 dòng, `Giảm phần trăm` 2 dòng
+- **D4** báo ngày bắt đầu 01/08/2026 đã trôi qua 17 ngày
+- C1, E1, E2, A4, A5, B4 đều 0 phát hiện — khớp kết quả khảo sát
+- Tắt luật trong `RuleConfig` → luật biến mất khỏi kết quả, xuất hiện trong `skippedRules`
+- Hạ `maxDiscountPercent` → số phát hiện của C4 tăng theo
+- Chạy 31 luật trên 3.931 dòng: ~30 ms (ngưỡng yêu cầu: dưới 3 giây)
+- `npm run typecheck`, `lint`, `build` sạch; `npm test` 340 test pass
+
+### Còn treo
+
+- **B6 ở mức `danger`.** Nâng lên `critical` cần bật cờ `not_allow_promotion` trên một sản phẩm ở store dev rồi thử tạo khuyến mãi — đó là lệnh **ghi** lên Haravan, trái nguyên tắc "chỉ đọc", nên chờ xác nhận trước khi làm.
+- **D8, E3** chưa chạy với dữ liệu thật; `promotion-fetcher.ts` thuộc giai đoạn 06.
+- **Nhóm B** chưa đối chiếu danh mục thật của cửa hàng — store dev không có 3.929 mã hiệu này.
+- **D1, D2** vẫn tắt mặc định. Quy ước tên `YYMM` + `GST`/`GPT` + giá trị đúng với cả 156 chương trình của file mẫu, nhưng đó là thói quen đặt tên chứ không phải ràng buộc.
+
 ## 2026-08-18 — Giai đoạn 03: Đọc & chuẩn hoá file Excel
 
 ### Thêm mới

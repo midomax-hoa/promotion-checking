@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao nhất về mặt giá trị — đây là phần lõi của sản phẩm
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18 — xem [Kết quả thực tế](#kết-quả-thực-tế-2026-08-18)
 - Hiện thực 31 luật nhóm A–E, đọc cấu hình từ DB, cho ra danh sách phát hiện. Nhóm F để giai đoạn 06.
 
 ## Nhận định quan trọng
@@ -201,17 +201,17 @@ Mỗi thông báo phải nêu **số liệu cụ thể**, không nói chung chun
 
 ## Danh sách việc
 
-- [ ] `types.ts` + hàm trợ giúp + test
-- [ ] `engine.ts` đọc cấu hình từ DB + test
-- [ ] **Chốt chặn cache rỗng** — bỏ qua nhóm B, phát `SYS-CATALOG-EMPTY` + test
-- [ ] Nhóm A: 5 luật + test
-- [ ] Nhóm C: 7 luật + test
-- [ ] Nhóm B: 5 luật + test (B1 có gợi ý SKU gần giống)
-- [ ] Nhóm D: 10 luật + test
-- [ ] Nhóm E: 3 luật + test
-- [ ] `registry.ts` + test đối chiếu với `rule-catalog.ts`
-- [ ] Bổ sung B5 vào `rule-catalog.ts` và seed
-- [ ] Chạy thật trên file mẫu, kiểm chứng số liệu
+- [x] `types.ts` + hàm trợ giúp + test
+- [x] `engine.ts` đọc cấu hình từ DB + test
+- [x] **Chốt chặn cache rỗng** — bỏ qua nhóm B, phát `SYS-CATALOG-EMPTY` + test
+- [x] Nhóm A: 5 luật + test
+- [x] Nhóm C: 7 luật + test
+- [x] Nhóm B: 6 luật + test (B1 có gợi ý SKU gần giống)
+- [x] Nhóm D: 10 luật + test
+- [x] Nhóm E: 3 luật + test
+- [x] `registry.ts` + test đối chiếu với `rule-catalog.ts`
+- [x] Bổ sung B5 vào `rule-catalog.ts` và seed — đã có sẵn từ giai đoạn 01
+- [x] Chạy thật trên file mẫu, kiểm chứng số liệu
 
 ## Tiêu chí hoàn thành
 
@@ -240,6 +240,64 @@ Chạy trên `promotion.t8.xlsx` thật phải cho ra:
 
 - Luật là hàm thuần, không gọi mạng, không đụng hệ thống tệp
 - Thông báo không được lộ dữ liệu ngoài phạm vi file đang kiểm và cache danh mục
+
+## Kết quả thực tế (2026-08-18)
+
+31 luật nhóm A–E đã chạy được, 340 test toàn dự án pass, `typecheck` / `lint` / `build` sạch.
+
+### Đối chiếu tiêu chí hoàn thành
+
+| Tiêu chí | Kết quả |
+|---|---|
+| C2 bắt đúng 279 dòng của `2608GST0K` | ✅ 279 — 275 dòng ghi `0`, 4 dòng để trống ô `Số tiền giảm` |
+| A2 liệt kê cả 2 sheet | ✅ `Key` 3.929 dòng, `Giảm phần trăm` 2 dòng |
+| D4 báo ngày bắt đầu 01/08 đã trôi qua | ✅ "đã trôi qua 17 ngày" (mốc so sánh 18/08/2026) |
+| C1 không báo dòng nào | ✅ 0 |
+| E1, E2 không báo dòng nào | ✅ 0 |
+| Tắt một luật → biến mất khỏi kết quả, có trong `skippedRules` | ✅ |
+| Đổi `maxDiscountPercent` → số phát hiện C4 đổi theo | ✅ 70% → 0; 30% → có; 10% → nhiều hơn 30% |
+| Chạy hết dưới 3 giây | ✅ ~30 ms ca thường, **365 ms ca xấu nhất** (xem bên dưới) |
+
+### Điểm lệch so với kế hoạch
+
+**1. C2 bắt thêm ô `Số tiền giảm` để trống trên dòng kiểu "theo số tiền".**
+Chương trình `2608GST0K` có 279 dòng: 275 dòng ghi `0`, 4 dòng (1346, 2114, 3650, 3714) để trống ô này và có `Giá sau giảm` bằng đúng `Giá niêm yết`. Nếu C2 chỉ bắt `≤ 0` thì ra 275, không phải 279 như tiêu chí. Ô trống trên dòng kiểu "theo số tiền" cũng dẫn tới cùng một kết cục 422, nên tính chung là đúng nghiệp vụ. Dòng kiểu phần trăm để trống ô này vẫn không bị báo.
+
+**2. Nhóm B không bị bỏ qua trọn gói khi cache rỗng — bỏ theo từng luật.**
+Kế hoạch ghi "bỏ qua toàn bộ nhóm B". Thực tế B4 (`Mã hiệu` không bắt đầu bằng `Mã`) chỉ đọc dữ liệu trong file, không đụng danh mục. Nên `Rule` có thêm trường `requires: ['catalog' | 'haravan-promotions']`; bộ máy bỏ qua đúng những luật thiếu dữ liệu. Kết quả: cache rỗng → bỏ B1, B2, B3, B5, B6 + phát `SYS-CATALOG-EMPTY`; B4 vẫn chạy.
+
+**3. Nhóm D báo theo chương trình, không theo dòng.**
+D3–D8, D10 phát một cảnh báo cho mỗi chương trình. Haravan tạo một chương trình cho mỗi `Tên ctkm`, nên một ngày kết thúc sai là **một** lỗi, không phải 279 lỗi. D9 (`Số dư`) vẫn theo dòng vì đó là ô của từng dòng.
+
+**4. `runRules` là hàm đồng bộ, không phải `async`.**
+Luật là hàm thuần nên không có gì để chờ. Phần đọc CSDL tách sang `rule-config-store.ts` (đọc `RuleConfig`) và `run-check.ts` (ráp cache danh mục + cấu hình ứng dụng). Nhờ vậy toàn bộ test luật chạy không cần kết nối CSDL.
+
+**5. Test gom theo nhóm thay vì mỗi luật một file.**
+Mỗi luật vẫn nằm ở file riêng như kế hoạch, nhưng test gom thành `group-a.test.ts` … `group-e.test.ts`. 31 file test rời rạc mỗi file 2–3 ca sẽ khó đọc hơn; mỗi file gom vẫn dưới 200 dòng.
+
+**6. Bổ sung `blankRowNumbers` vào `SheetSummary` (sửa code giai đoạn 03).**
+Luật A5 cần biết dòng trống nằm ở đâu, mà `promotion-workbook.ts` trước đó lọc bỏ dòng trống không lưu lại. Chỉ ghi những dòng trống **nằm giữa** vùng dữ liệu; dòng trống ở cuối sheet là chuyện bình thường.
+
+**7. Thêm tham số `suggestMaxComparisons` cho B1.**
+
+Rủi ro "Levenshtein quá chậm" trong kế hoạch là có thật, và cách giảm thiểu đã ghi (lọc theo độ dài + 3 ký tự đầu) **không đủ**. Đo trên file thật ngày 2026-08-18:
+
+- 3.931 mã hiệu trong file chỉ rơi vào **24 rổ** 3 ký tự, rổ lớn nhất ôm 31% — mã của cửa hàng gần như đều bắt đầu bằng `km`
+- Khi danh mục có ~59.000 biến thể nhưng **không chứa** mã nào của file (đồng bộ cũ, hoặc token trỏ nhầm cửa hàng), mỗi lần tra phải quét gần một phần ba danh mục → **83 giây**
+
+Cách xử lý: một hạn mức so sánh dùng chung cho cả lượt kiểm tra (`suggestMaxComparisons`, mặc định 2.000.000, sửa được trên màn hình cấu hình). Hết hạn mức thì **ngừng gợi ý**, cảnh báo vẫn được phát đủ, và phần gợi ý đổi sang câu "có quá nhiều mã không tra ra, nhiều khả năng danh mục chưa đồng bộ". Không cắt ngầm.
+
+Kết quả đo lại: ca xấu nhất **365 ms**, ca danh mục đầy đủ 22 ms, ca có 20 mã sai 26 ms (9/20 mã vẫn có gợi ý).
+
+**8. Sửa một test chớp tắt của giai đoạn 03.**
+`test/excel/excel-reader.test.ts` khẳng định bộ đọc luồng của `exceljs` *luôn* ném lỗi với file do chính `exceljs` ghi. Đo thực tế: chạy tuần tự ném lỗi 59/60 lần, chạy song song ném **0/60** — đây là đua tranh trong `exceljs`, phụ thuộc mỗi vòng lặp sự kiện nhận được bao nhiêu dữ liệu. Test đã đổi sang khẳng định phần tất định: dù đường nào thắng, `readWorkbook` vẫn trả về đúng dữ liệu.
+
+### Việc còn treo
+
+- **B6 vẫn ở mức `danger`.** Nâng lên `critical` cần bật cờ `not_allow_promotion` trên một sản phẩm ở store dev, thử tạo khuyến mãi, rồi trả về trạng thái cũ — đó là lệnh **ghi** lên Haravan, trái với nguyên tắc "chỉ đọc" của dự án, nên chờ xác nhận trước khi làm.
+- **D8 và E3 chưa chạy lần nào với dữ liệu thật** vì `promotion-fetcher.ts` thuộc giai đoạn 06. Hiện `haravanPromotions = null` nên hai luật này nằm trong `skippedRules`. Kiểu `HaravanPromotion` trong `src/lib/rules/types.ts` là hợp đồng đầu vào đã chuẩn hoá; giai đoạn 06 chỉ cần ánh xạ phản hồi API sang kiểu đó.
+- **Nhóm B chưa đối chiếu với danh mục thật của cửa hàng.** Store dev không có 3.929 mã hiệu này. Đã kiểm bằng danh mục dựng sẵn trong test; số liệu thật cần chờ đồng bộ cửa hàng thật.
+- **D1 và D2 vẫn tắt mặc định.** Quy ước tên `YYMM` + `GST`/`GPT` + giá trị đúng với cả 156 chương trình của file mẫu, nhưng đó là thói quen đặt tên, không phải ràng buộc.
 
 ## Bước kế tiếp
 

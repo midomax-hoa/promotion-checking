@@ -37,7 +37,7 @@ src/
     excel/              # đọc và chuẩn hoá file khuyến mãi
     config/             # đọc AppSetting có kiểm tra kiểu
     db/prisma.ts        # Prisma client khởi tạo trễ
-    rules/              # danh mục 37 luật kiểm tra
+    rules/              # danh mục 37 luật, bộ máy chạy luật, 31 luật nhóm A–E
     serialization/      # chuyển BigInt qua ranh giới server ↔ trình duyệt
 prisma/                 # schema, migration, seed
 test/                   # soi gương theo cấu trúc src/
@@ -165,6 +165,70 @@ Cả ba đều có test khoá lại, nên khi nâng `exceljs` mà lỗi nào đ�
 | Đọc trọn file thật, kể cả bước vá chữ | ~1.100–1.300 ms (ngưỡng: dưới 2 giây) |
 | Riêng bộ đọc luồng | ~100 ms |
 | Bước vá chữ | ~1.000 ms, chỉ chạy khi phát hiện chữ hỏng |
+
+## Bộ máy luật (giai đoạn 04)
+
+```
+src/lib/rules/
+  rule-catalog.ts        # 37 luật được khai báo - nguồn cho seed và cho màn cấu hình
+  registry.ts            # 31 luật đã hiện thực (nhóm A–E); nhóm F thuộc giai đoạn 06
+  engine.ts              # lọc theo cấu hình, kiểm dữ liệu đầu vào, gom và sắp xếp
+  rule-config-store.ts   # đọc RuleConfig, lùi về mặc định khi giá trị hỏng
+  run-check.ts           # đầu mối bất đồng bộ: cache danh mục + cấu hình + luật
+  helpers/               # levenshtein, money, date-range, row-ref
+  group-a-file-structure/ … group-e-overlap/   # mỗi luật một file, hàm thuần
+```
+
+Luật là **hàm thuần**: không gọi mạng, không đụng hệ thống tệp, `now` truyền từ ngoài vào. Nhờ vậy toàn bộ test luật chạy không cần kết nối CSDL.
+
+Thêm luật mới = tạo file + khai vào `index.ts` của nhóm. Không sửa bộ máy. `registry.ts` và `rule-catalog.ts` lệch nhau là test đỏ, vì một luật được khai báo, bật sẵn, nhưng không bao giờ chạy sẽ trông y hệt một file sạch.
+
+### Thiếu dữ liệu thì báo là thiếu
+
+Luật khai báo dữ liệu ngoài mà nó cần qua trường `requires`. Bộ máy bỏ qua đúng những luật thiếu dữ liệu và ghi vào `skippedRules`:
+
+| Tình huống | Bỏ qua | Báo gì |
+|---|---|---|
+| `catalog.syncedAt === null` hoặc cache rỗng | B1, B2, B3, B5, B6 | Cảnh báo `SYS-CATALOG-EMPTY` mức `critical` |
+| `haravanPromotions === null` | D8, E3 | Chỉ ghi vào `skippedRules` |
+
+B4 nằm trong nhóm B nhưng chỉ đọc dữ liệu trong file nên vẫn chạy khi cache rỗng.
+
+Không có chốt chặn này thì lần dùng đầu tiên sẽ cho ra 3.929 cảnh báo sai "SKU không tồn tại", và người dùng mất niềm tin ngay.
+
+### Phạm vi báo lỗi
+
+- **Nhóm A, B, C** — theo dòng, kèm `rowNumber` để bấm về đúng ô trong file
+- **Nhóm D** — theo chương trình. Haravan tạo một chương trình cho mỗi `Tên ctkm`, nên một ngày kết thúc sai là **một** lỗi, không phải 279 lỗi. Riêng D9 (`Số dư`) theo dòng vì đó là ô của từng dòng
+- **Nhóm E** — theo cặp chồng lấn
+
+### Gợi ý mã hiệu gần giống (luật B1)
+
+Mã hiệu của cửa hàng dồn cục: đo trên file thật ngày 2026-08-18, 3.931 mã chỉ rơi vào **24 rổ** 3 ký tự, rổ lớn nhất ôm 31% — gần như mã nào cũng bắt đầu bằng `km`. Nên lọc theo 3 ký tự đầu cộng độ dài là chưa đủ.
+
+| Tình huống | Trước | Sau |
+|---|---|---|
+| Danh mục ~59.000 biến thể, không chứa mã nào của file | 83 giây | **365 ms** |
+| Danh mục đầy đủ | — | 22 ms |
+| 20 mã sai giữa danh mục đầy đủ | — | 26 ms, 9/20 mã có gợi ý |
+
+Cách xử lý: tham số `suggestMaxComparisons` (mặc định 2.000.000) giới hạn công sức tìm mã gần giống cho **cả lượt kiểm tra**. Hết hạn mức thì ngừng gợi ý — cảnh báo vẫn phát đủ, và phần gợi ý nói thẳng là đã ngừng vì có quá nhiều mã không tra ra, nhiều khả năng danh mục chưa đồng bộ. Không cắt ngầm.
+
+### Quy ước viết thông báo
+
+Mỗi thông báo nêu **số liệu cụ thể** và hậu quả, kèm gợi ý sửa:
+
+- ✅ `"Dòng 51: số tiền giảm 0đ. Haravan sẽ từ chối (lỗi 422), toàn bộ chương trình này không được tạo."`
+- ✅ `"Dòng 12: mã hiệu 'KMAP231728F.XXL' không có trên Haravan..."` → `"Có phải ý là 'kmap231728f.xl' không?"`
+
+Phần trăm trong file **luôn là thập phân** (0.5 = 50%); chỉ chỗ định dạng thông báo và chỗ dựng payload Haravan mới nhân 100.
+
+### Số đo
+
+| Hạng mục | Kết quả |
+|---|---|
+| 31 luật trên 3.931 dòng, danh mục đầy đủ | ~30 ms (ngưỡng: dưới 3 giây) |
+| Ca xấu nhất — mọi mã hiệu đều không tra ra | 365 ms |
 
 ## Dữ liệu
 
