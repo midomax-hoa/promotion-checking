@@ -4,6 +4,8 @@ import {
   RULE_CODES,
   SYSTEM_FINDING_TITLES,
   SYSTEM_RULE_CATALOG_EMPTY,
+  SYSTEM_RECONCILE_AMBIGUOUS,
+  SYSTEM_RECONCILE_DISAGREED,
 } from '@/lib/rules/rule-catalog'
 import { DEFAULT_APP_SETTINGS } from '@/lib/config/app-settings-catalog'
 
@@ -39,20 +41,35 @@ describe('rule catalog', () => {
       C5: { maxPercentValue: 1 },
       C7: { roundingUnit: 1000 },
       D7: { maxDurationDays: 90, minDurationDays: 1 },
+      F2: { percentTolerance: 0.01 },
     })
   })
 
   it('keeps system finding codes out of the configurable catalog', () => {
-    expect(RULE_CODES).not.toContain(SYSTEM_RULE_CATALOG_EMPTY)
-    expect(SYSTEM_FINDING_TITLES[SYSTEM_RULE_CATALOG_EMPTY]).toBeTruthy()
+    for (const code of [
+      SYSTEM_RULE_CATALOG_EMPTY,
+      SYSTEM_RECONCILE_AMBIGUOUS,
+      SYSTEM_RECONCILE_DISAGREED,
+    ]) {
+      // These report missing or unusable input rather than a business rule, so
+      // they must not be switchable off from the configuration screen.
+      expect(RULE_CODES).not.toContain(code)
+      expect(SYSTEM_FINDING_TITLES[code]).toBeTruthy()
+    }
   })
 })
 
 describe('app settings catalog', () => {
   // 7 from phase 01, plus haravan.max_attempts, catalog.cursor_overlap_ms and
-  // catalog.sync_shortfall_tolerance added with the catalog sync in phase 02.
-  it('declares 10 settings with unique keys', () => {
-    expect(DEFAULT_APP_SETTINGS).toHaveLength(10)
-    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(10)
+  // catalog.sync_shortfall_tolerance added with the catalog sync in phase 02,
+  // plus shop.timezone_offset_minutes added with reconciliation in phase 06.
+  it('declares 11 settings with unique keys', () => {
+    expect(DEFAULT_APP_SETTINGS).toHaveLength(11)
+    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(11)
+  })
+
+  it('never hard-codes the shop timezone - it is an editable setting', () => {
+    const offset = DEFAULT_APP_SETTINGS.find((s) => s.key === 'shop.timezone_offset_minutes')
+    expect(offset?.value).toBe('420')
   })
 })

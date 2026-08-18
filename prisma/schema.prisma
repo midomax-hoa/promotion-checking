@@ -60,6 +60,7 @@ model CheckRun {
   catalogSyncedAt DateTime? // catalog freshness snapshot at run time
   findings        Finding[]
   programs        CheckProgram[]
+  matches         ReconcileMatch[] // populated only when mode = "reconcile"
 
   @@index([createdAt]) // history list, newest first
   @@index([fileHash]) // "this file was already checked" lookup
@@ -82,6 +83,47 @@ model CheckProgram {
   countWarn     Int @default(0)
 
   @@unique([runId, name]) // also serves as the per-run lookup index
+}
+
+/// One Excel program lined up against what Haravan actually holds.
+///
+/// Stored per (program, Haravan promotion) pair rather than per program, because
+/// Haravan allows duplicate promotion names: an ambiguous match writes one row
+/// per candidate so the screen can list them all instead of picking one.
+///
+/// Both sides are snapshotted rather than recomputed. The three-column diff has
+/// to still be readable months later, long after the promotion has been edited
+/// on Haravan and the uploaded file pruned from disk.
+model ReconcileMatch {
+  id          String   @id @default(cuid())
+  runId       String
+  run         CheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  programName String
+  status      String // "matched" | "not-found" | "ambiguous" | "extra-on-haravan"
+
+  // Excel side. All null for a promotion that only exists on Haravan.
+  excelRowCount     Int?
+  /// Distinct usable SKUs, i.e. what Haravan actually receives. Compared by rule F5.
+  excelSkuCount     Int?
+  excelDiscountType String? // "fixed_amount" | "percentage" | "same_price"
+  excelValue        Float? // amount in dong, or percent already scaled to 0-100
+  excelStartAt      DateTime?
+  excelEndAt        DateTime?
+
+  // Haravan side. All null when nothing matched the name.
+  haravanId           String? // kept as text: an id is an identifier, never arithmetic
+  haravanTakeType     String? // "fixed_amount" | "percentage"
+  haravanValue        Float?
+  haravanStartAt      DateTime?
+  haravanEndAt        DateTime?
+  haravanStatus       String? // "enabled" | "disabled"
+  /// Variants resolved from entitled_variant_ids + entitled_product_ids.
+  /// null = the catalog cache could not resolve them, so no conclusion was drawn.
+  haravanVariantCount Int?
+  /// True when the promotion attaches whole products rather than single variants.
+  haravanByProduct    Boolean   @default(false)
+
+  @@index([runId, programName])
 }
 
 model Finding {

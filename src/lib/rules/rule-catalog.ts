@@ -94,7 +94,11 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
 
   // Group F - reconciliation after import
   rule('F1', 'F', 'Dòng có trong Excel nhưng không tìm thấy trên Haravan', 'critical'),
-  rule('F2', 'F', 'Giá trị giảm trên Haravan lệch với Excel', 'critical'),
+  // Percentages are whole numbers on both sides once converted, so the tolerance
+  // only absorbs floating-point noise. Money uses `check.money_tolerance_vnd`.
+  rule('F2', 'F', 'Giá trị giảm trên Haravan lệch với Excel', 'critical', {
+    params: { percentTolerance: 0.01 },
+  }),
   rule('F3', 'F', 'Ngày bắt đầu hoặc kết thúc lệch', 'critical'),
   rule('F4', 'F', 'Chương trình đã tạo nhưng đang ở trạng thái tắt', 'warn'),
   rule('F5', 'F', 'Số SKU đính kèm lệch giữa Excel và Haravan', 'critical'),
@@ -108,9 +112,15 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
  * resolves their label from this map instead of joining against RuleConfig.
  */
 export const SYSTEM_RULE_CATALOG_EMPTY = 'SYS-CATALOG-EMPTY'
+/** Two promotions on Haravan share a name, so no rule may conclude which one is meant. */
+export const SYSTEM_RECONCILE_AMBIGUOUS = 'SYS-RECONCILE-AMBIGUOUS'
+/** The two reconciliation passes disagreed, so the result is not yet trustworthy. */
+export const SYSTEM_RECONCILE_DISAGREED = 'SYS-RECONCILE-DISAGREED'
 
 export const SYSTEM_FINDING_TITLES: Readonly<Record<string, string>> = {
   [SYSTEM_RULE_CATALOG_EMPTY]: 'Chưa đồng bộ danh mục sản phẩm nên bỏ qua toàn bộ nhóm luật B',
+  [SYSTEM_RECONCILE_AMBIGUOUS]: 'Haravan có nhiều chương trình trùng tên nên không tự đối chiếu được',
+  [SYSTEM_RECONCILE_DISAGREED]: 'Hai lượt đối soát cho kết quả khác nhau, nên chạy lại',
 }
 
 export const RULE_CODES: readonly string[] = RULE_CATALOG.map((r) => r.code)

@@ -21,7 +21,12 @@ describe('registry', () => {
     expect(RULES.map((rule) => rule.code).filter((code) => !catalogued.has(code))).toEqual([])
   })
 
-  it('does not implement group F yet - that is phase 06', () => {
+  /**
+   * Group F lives in its own registry (`reconcile/group-f-reconcile`) because a
+   * reconciliation rule reads a match list, not a workbook and a catalog. Keeping
+   * it out of `RULES` is deliberate, not an omission.
+   */
+  it('keeps group F out of the checking registry', () => {
     expect(RULES.some((rule) => rule.code.startsWith('F'))).toBe(false)
   })
 

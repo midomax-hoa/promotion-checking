@@ -19,6 +19,7 @@ export const APP_SETTING_KEYS = {
   catalogCursorOverlapMs: 'catalog.cursor_overlap_ms',
   catalogShortfallTolerance: 'catalog.sync_shortfall_tolerance',
   reconcileRecheckDelayMs: 'reconcile.recheck_delay_ms',
+  shopTimezoneOffsetMinutes: 'shop.timezone_offset_minutes',
   reportMaxRowsPerPage: 'report.max_rows_per_page',
   moneyToleranceVnd: 'check.money_tolerance_vnd',
 } as const
@@ -72,6 +73,12 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
     key: APP_SETTING_KEYS.reconcileRecheckDelayMs,
     value: '8000',
     description: 'Khoảng chờ giữa hai lần kiểm để tránh báo oan do trễ chỉ mục',
+  },
+  {
+    key: APP_SETTING_KEYS.shopTimezoneOffsetMinutes,
+    value: '420',
+    description:
+      'Lệch múi giờ của cửa hàng so với UTC, tính bằng phút - Haravan trả mốc thời gian dạng UTC nên phải quy đổi trước khi so',
   },
   {
     key: APP_SETTING_KEYS.reportMaxRowsPerPage,

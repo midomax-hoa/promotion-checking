@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db/prisma'
 import type { RunRulesResult } from '@/lib/rules/engine'
 import type { Severity } from '@/lib/rules/types'
 import type { WorkbookReadResult } from '@/lib/excel/types'
+import type { ReconcileMatchRow } from '@/lib/reconcile/reconcile-match-rows'
 
 /** Big enough to keep the round trips down, small enough to stay inside the parameter limit. */
 const FINDING_BATCH_SIZE = 1000
@@ -24,6 +25,11 @@ export type CheckRunInput = {
   /** null when the upload could not be kept; the export screen explains it. */
   storedFileName: string | null
   mode?: 'check' | 'reconcile'
+  /**
+   * Reconciliation only. Written inside the same transaction as the findings,
+   * so a run can never show findings whose three-column comparison is missing.
+   */
+  matches?: readonly ReconcileMatchRow[]
 }
 
 export type FindingRow = {
@@ -95,7 +101,7 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 }
 
 export async function saveCheckRun(input: CheckRunInput): Promise<string> {
-  const { workbook, result, catalogSyncedAt, storedFileName, mode = 'check' } = input
+  const { workbook, result, catalogSyncedAt, storedFileName, mode = 'check', matches } = input
   const findingRows = buildFindingRows(result)
   const programRows = buildProgramRows(workbook, result)
 
@@ -125,6 +131,9 @@ export async function saveCheckRun(input: CheckRunInput): Promise<string> {
       }
       for (const batch of chunk(findingRows, FINDING_BATCH_SIZE)) {
         await tx.finding.createMany({ data: batch.map((row) => ({ ...row, runId: run.id })) })
+      }
+      for (const batch of chunk(matches ?? [], FINDING_BATCH_SIZE)) {
+        await tx.reconcileMatch.createMany({ data: batch.map((row) => ({ ...row, runId: run.id })) })
       }
 
       return run.id

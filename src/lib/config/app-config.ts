@@ -18,6 +18,8 @@ const positiveInt = z.coerce.number().int().positive()
 const positiveNumber = z.coerce.number().positive()
 /** Zero is a meaningful setting for tolerances and delays, unlike for a page size. */
 const nonNegativeInt = z.coerce.number().int().nonnegative()
+/** A timezone offset is a signed number of minutes; UTC-12:00 to UTC+14:00 covers every real zone. */
+const timezoneOffsetMinutes = z.coerce.number().int().min(-720).max(840)
 
 /** Must stay on Haravan, otherwise the API token would be sent to a foreign host. */
 const haravanBaseUrl = z.string().refine((value) => {
@@ -45,6 +47,10 @@ const APP_CONFIG_SCHEMA = {
   catalogCursorOverlapMs: [APP_SETTING_KEYS.catalogCursorOverlapMs, nonNegativeInt.max(86_400_000)],
   catalogShortfallTolerance: [APP_SETTING_KEYS.catalogShortfallTolerance, nonNegativeInt.max(10_000)],
   reconcileRecheckDelayMs: [APP_SETTING_KEYS.reconcileRecheckDelayMs, positiveInt.max(120_000)],
+  shopTimezoneOffsetMinutes: [
+    APP_SETTING_KEYS.shopTimezoneOffsetMinutes,
+    timezoneOffsetMinutes,
+  ],
   reportMaxRowsPerPage: [APP_SETTING_KEYS.reportMaxRowsPerPage, positiveInt.max(1000)],
   moneyToleranceVnd: [APP_SETTING_KEYS.moneyToleranceVnd, positiveNumber.max(1000)],
 } as const
