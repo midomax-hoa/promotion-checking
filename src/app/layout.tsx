@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 const NAV_ITEMS = [
   { href: '/', label: 'Kiểm tra file' },
   { href: '/lich-su', label: 'Lịch sử kiểm tra' },
+  { href: '/doi-soat', label: 'Đối soát sau import' },
   { href: '/dong-bo', label: 'Đồng bộ danh mục' },
 ]
 

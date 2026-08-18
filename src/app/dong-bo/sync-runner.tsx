@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { readNdjson } from '@/lib/ndjson-stream'
 
 /**
  * Runs a sync and shows progress while it happens.
@@ -125,24 +126,3 @@ function toPercent(progress: Extract<SyncEvent, { type: 'progress' }> | null): n
   return Math.min(100, Math.round((progress.products / progress.expectedProducts) * 100))
 }
 
-/** Yields one parsed object per line, tolerating chunks that split a line. */
-async function* readNdjson<T>(body: ReadableStream<Uint8Array>): AsyncGenerator<T> {
-  const reader = body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    let newline = buffer.indexOf('\n')
-    while (newline >= 0) {
-      const line = buffer.slice(0, newline).trim()
-      buffer = buffer.slice(newline + 1)
-      if (line) yield JSON.parse(line) as T
-      newline = buffer.indexOf('\n')
-    }
-  }
-  const rest = buffer.trim()
-  if (rest) yield JSON.parse(rest) as T
-}
