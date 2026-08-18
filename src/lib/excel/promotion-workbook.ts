@@ -14,10 +14,10 @@ import { hasSpreadsheetSignature, readWorkbook } from './excel-reader'
 import { groupPrograms } from './program-grouper'
 import { isEmptyRow, normalizeRow } from './row-normalizer'
 import type { PromotionRow, SheetSummary, WorkbookReadResult } from './types'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './upload-limits'
 import type { RawRow } from './excel-reader'
 
-/** Matches the upload cap enforced at the API boundary. */
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export { MAX_UPLOAD_BYTES }
 
 export class InvalidWorkbookError extends Error {}
 
@@ -26,8 +26,7 @@ function assertReadable(bytes: Uint8Array): void {
     throw new InvalidWorkbookError('Tệp rỗng, không có gì để đọc.')
   }
   if (bytes.byteLength > MAX_UPLOAD_BYTES) {
-    const limitMb = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)
-    throw new InvalidWorkbookError(`Tệp vượt quá giới hạn ${limitMb} MB.`)
+    throw new InvalidWorkbookError(`Tệp vượt quá giới hạn ${MAX_UPLOAD_MB} MB.`)
   }
   // Checked on the bytes, not the extension: renaming a .zip to .xlsx must not
   // get it as far as the XML parser.
@@ -56,7 +55,18 @@ export async function readPromotionWorkbook(
 ): Promise<WorkbookReadResult> {
   assertReadable(bytes)
 
-  const workbook = await readWorkbook(bytes, fileName)
+  // Passing the signature check is not the same as being readable: a genuine
+  // .xls carries a valid OLE2 header that neither reader can open. Wrapped so
+  // the upload route answers "this file cannot be read" instead of a 500.
+  let workbook: Awaited<ReturnType<typeof readWorkbook>>
+  try {
+    workbook = await readWorkbook(bytes, fileName)
+  } catch (cause) {
+    throw new InvalidWorkbookError(
+      'Không mở được tệp. Nếu đây là file .xls đời cũ, hãy mở bằng Excel rồi lưu lại thành .xlsx.',
+      { cause },
+    )
+  }
   const sheets: SheetSummary[] = []
   const missingRequiredColumns: WorkbookReadResult['missingRequiredColumns'] = []
   const rows: PromotionRow[] = []
