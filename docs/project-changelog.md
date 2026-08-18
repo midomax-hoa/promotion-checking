@@ -2,6 +2,48 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 03: Đọc & chuẩn hoá file Excel
+
+### Thêm mới
+
+**Tầng đọc Excel** (`src/lib/excel/`)
+
+- `types.ts` — `PromotionRow`, `PromotionProgram`, `WorkbookReadResult`
+- `cell-value.ts` — bóc tách ô công thức, rich text, hyperlink, ô lỗi
+- `number-parser.ts` — ô trống trả `null`, không trả `0`
+- `date-parser.ts` — 4 định dạng ngày, dựng lại `Date` từ thành phần UTC nên không lệch múi giờ
+- `column-mapper.ts` — dò cột 2 lượt (khớp chính xác trước, khớp chứa sau, từ khoá dài ưu tiên)
+- `excel-reader.ts` — đọc theo luồng, băm SHA-256, kiểm chữ ký đầu tệp
+- `text-repair.ts` — vá chữ hỏng do lỗi giải mã của `exceljs`
+- `row-normalizer.ts` — dòng thô → `PromotionRow`, ghi `issues` cho từng ô hỏng
+- `program-grouper.ts` — gom theo `Tên ctkm`, thu thập các giá trị khác nhau trong cùng chương trình
+- `promotion-workbook.ts` — đầu mối duy nhất: bytes → `WorkbookReadResult`
+
+**Kiểm thử** — 139 test, 8 file trong `test/excel/`
+
+### Ba lỗi của `exceljs` phải né
+
+Phát hiện khi đối chiếu với XML gốc của file mẫu. **Mỗi bộ đọc sai một kiểu khác nhau**, không bộ nào dùng một mình được:
+
+| Lỗi | Hậu quả nếu bỏ qua | Cách xử lý |
+|---|---|---|
+| Bộ đọc buffered đánh rơi kết quả `0` của ô công thức chia sẻ (`Key!I51` có `<v>0</v>` nhưng trả về rỗng) | Đúng 279 ô — toàn bộ chương trình `2608GST0K`. Tính năng cốt lõi "phát hiện dòng giảm 0đ" sẽ báo ô trống thay vì 0 | Lấy bộ đọc luồng làm gốc cho mọi giá trị |
+| Bộ đọc luồng làm hỏng ký tự UTF-8 vắt qua ranh giới chunk (`parse-sax.js:21` giải mã từng chunk riêng lẻ, không dùng `StringDecoder`) | Chữ tiếng Việt hỏng. Nguy hiểm nhất là cột `Kiểu ctkm`: "Giảm giá theo số tiền" hỏng sẽ sinh cảnh báo sai | Phát hiện `U+FFFD` thì đọc thêm buffered, chỉ thay riêng chuỗi hỏng |
+| Bộ đọc luồng sập với file do chính `exceljs` ghi (`workbook-reader.js:303` truy cập `this.model` chưa khởi tạo, vì `xl/workbook.xml` nằm cuối zip) | Không đọc được file xuất từ phần mềm nội bộ | Đường lui sang bộ đọc buffered |
+
+### Điểm lệch so với kế hoạch
+
+- **Ô công thức**: đặc tả không nhắc, nhưng 100% ô `Tên ctkm` và `Số tiền giảm` trong sheet `Key` là công thức. Đọc thẳng `cell.value` sẽ gom cả 3.929 dòng vào một chương trình `[object Object]`.
+- **Tiêu đề `Số dư`** là rich text `{ richText: [...] }` với ký tự `\n`, không phải chuỗi `"Số dư\r\n(...)"` như đặc tả ghi.
+- **Không copy file mẫu vào `test/fixtures/`** — đó là dữ liệu kinh doanh thật và `.gitignore` đang loại trừ `*.xlsx`. Test dựng file `.xlsx` trong bộ nhớ cho ca biên; test đối chiếu file thật tự bỏ qua khi không có file.
+
+### Số đo trên file thật `promotion.t8.xlsx`
+
+- 2 sheet, 3.931 dòng, 154 chương trình ở sheet `Key`, **279 dòng giảm 0đ** của `2608GST0K` — khớp đúng kỳ vọng
+- Đọc trọn file kể cả bước vá chữ: ~1.100–1.300 ms (ngưỡng yêu cầu: dưới 2 giây)
+- Riêng bộ đọc luồng: ~100 ms. Bước vá chữ chỉ chạy khi phát hiện chữ hỏng
+- `npm run typecheck`, `lint` sạch; `npm test` 201 test pass
+
 ## 2026-08-17 — Giai đoạn 02: Haravan client & đồng bộ danh mục
 
 ### Thêm mới

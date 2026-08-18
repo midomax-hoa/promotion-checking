@@ -8,7 +8,7 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 |---|---|---|---|
 | 01 | Nền tảng dự án & lược đồ dữ liệu | — | ✅ Xong 2026-08-17 |
 | 02 | Haravan client & đồng bộ danh mục | 01 | ✅ Xong 2026-08-17 |
-| 03 | Đọc & chuẩn hoá file Excel | 01 | ⬜ Chưa làm |
+| 03 | Đọc & chuẩn hoá file Excel | 01 | ✅ Xong 2026-08-18 |
 | 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ⬜ Chưa làm |
 | 05 | Màn kiểm tra file & xuất báo cáo | 04 | ⬜ Chưa làm |
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ⬜ Chưa làm |
@@ -28,6 +28,14 @@ Khung Next.js 15 + TypeScript + Tailwind v4, Prisma 7 nối PostgreSQL trong WSL
 Tầng gọi API có kiểm soát nhịp, đồng bộ danh mục về cache, màn hình ③.
 
 Kiểm chứng trên store dev: 74 sản phẩm / 937 biến thể trong 0,7–1,1 giây, **khớp chính xác** `GET /com/products/count.json`. Đồng bộ tăng dần 65 mili giây. 62 test pass; `typecheck`, `lint`, `build` sạch.
+
+### Giai đoạn 03 — Đọc & chuẩn hoá file Excel (2026-08-18)
+
+Đầu mối `readPromotionWorkbook(bytes, fileName)` → `WorkbookReadResult`. Đọc mọi sheet, dò cột theo từ khoá, phân tích ngày an toàn múi giờ, gom nhóm theo `Tên ctkm`.
+
+Đối chiếu file thật: 2 sheet, 3.931 dòng, 154 chương trình ở sheet `Key`, đúng **279 dòng giảm 0đ** của `2608GST0K`, đọc hết trong ~1,1–1,3 giây. 139 test cho tầng này, 201 test toàn dự án.
+
+Phải né **ba lỗi của `exceljs`** — chi tiết ở [`system-architecture.md`](system-architecture.md#tầng-đọc-excel-giai-đoạn-03).
 
 Chi tiết kiến trúc ở [`system-architecture.md`](system-architecture.md).
 

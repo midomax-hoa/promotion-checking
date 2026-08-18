@@ -9,7 +9,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — bộ máy luật không chạy được nếu tầng này sai
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18 — xem [Kết quả thực tế](#kết-quả-thực-tế-2026-08-18)
 - Đọc **tất cả sheet**, dò cột linh hoạt, phân tích ngày an toàn, gom nhóm theo `Tên ctkm`, trả về mô hình dữ liệu chuẩn.
 
 ## Nhận định quan trọng
@@ -168,14 +168,16 @@ export type DateParseResult =
 
 ## Danh sách việc
 
-- [ ] `types.ts`
-- [ ] `number-parser.ts` + test
-- [ ] `date-parser.ts` + test (đủ 4 định dạng, có ca lệch múi giờ)
-- [ ] `column-mapper.ts` + test (tiêu đề có `\r\n`, thứ tự `mã hiệu` trước `mã`)
-- [ ] `excel-reader.ts` đọc mọi sheet + băm file
-- [ ] `row-normalizer.ts` + test
-- [ ] `program-grouper.ts` + test
-- [ ] Test đối chiếu file thật `promotion.t8.xlsx`
+- [x] `types.ts`
+- [x] `number-parser.ts` + test
+- [x] `date-parser.ts` + test (đủ 4 định dạng, có ca lệch múi giờ)
+- [x] `column-mapper.ts` + test (tiêu đề có `\r\n`, thứ tự `mã hiệu` trước `mã`)
+- [x] `excel-reader.ts` đọc mọi sheet + băm file
+- [x] `row-normalizer.ts` + test
+- [x] `program-grouper.ts` + test
+- [x] Test đối chiếu file thật `promotion.t8.xlsx`
+- [x] `cell-value.ts` — bóc tách ô công thức / rich text (phát sinh, xem bên dưới)
+- [x] `text-repair.ts` — vá chữ hỏng do lỗi giải mã của `exceljs` (phát sinh)
 
 ## Tiêu chí hoàn thành
 
@@ -200,6 +202,65 @@ export type DateParseResult =
 - Chỉ nhận `.xlsx` / `.xls`; kiểm tra chữ ký đầu tệp chứ không chỉ tin phần mở rộng
 - Không lưu tệp gốc lên đĩa lâu dài; chỉ giữ băm và kết quả đã phân tích
 
+## Kết quả thực tế (2026-08-18)
+
+Toàn bộ tiêu chí hoàn thành đều đạt. 139 test cho tầng Excel, 201 test toàn dự án, `tsc --noEmit` và `eslint` sạch.
+
+### Khác biệt so với đặc tả ban đầu
+
+Bốn điểm dưới đây phát hiện khi đối chiếu file thật, đặc tả gốc chưa lường tới:
+
+**1. Ô công thức — bắt buộc phải xử lý, đặc tả gốc không nhắc**
+
+Trong sheet `Key`, **100% ô `Tên ctkm` và `Số tiền giảm` là ô công thức**, `exceljs` trả về `{ formula, result }` chứ không phải giá trị trần. Đọc thẳng `cell.value` sẽ gom cả 3.929 dòng vào một chương trình tên `[object Object]`. Thêm `cell-value.ts` để bóc tách công thức, rich text, hyperlink và ô lỗi.
+
+Ô lỗi (`#DIV/0!`) được trả về nguyên dạng chuỗi chứ không quy về rỗng — để nó hiện ra thành cảnh báo, không bị hiểu nhầm là ô trống.
+
+**2. Tiêu đề `Số dư` là rich text, không phải chuỗi**
+
+Đặc tả ghi `"Số dư\r\n(Để trống nếu không giới hạn)"`. Thực tế `exceljs` trả `{ richText: [...] }` và ký tự xuống dòng là `\n`. Phải nối các đoạn rich text lại trước khi chuẩn hoá.
+
+**3. Đọc theo luồng nhanh gấp ~11 lần, nhưng có hai lỗi của `exceljs` phải né**
+
+Đo trên file thật: bộ đọc luồng ~100 ms, bộ đọc buffered ~1.100 ms. Tuy nhiên **mỗi bộ đọc sai một kiểu khác nhau**, đã đối chiếu XML gốc để biết đâu là đúng:
+
+| Ô | Giá trị thật trong XML | Bộ đọc luồng | Bộ đọc buffered |
+|---|---|---|---|
+| `Key!I51` | `<v>0</v>` | `0` ✅ | mất luôn số `0` ❌ |
+| `Key!C801` | `Quả bóng chuyền trẻ em…` | hỏng thành `tr��em` ❌ | đúng ✅ |
+
+- **Buffered đánh rơi kết quả `0` của ô công thức chia sẻ** — đúng 279 ô, tức toàn bộ chương trình `2608GST0K`. Nếu dùng bộ đọc này, tính năng cốt lõi "phát hiện dòng giảm 0đ" sẽ báo là ô trống thay vì 0.
+- **Luồng làm hỏng ký tự UTF-8 nằm vắt qua ranh giới chunk** — nguyên nhân ở `lib/utils/parse-sax.js:21`, mỗi chunk được giải mã riêng lẻ, không dùng `StringDecoder`. File mẫu dính 1 ô. Đáng lo vì cột `Kiểu ctkm` cũng là tiếng Việt: nếu "Giảm giá theo số tiền" bị hỏng thì sinh ra cảnh báo sai.
+
+Cách xử lý: **lấy bộ đọc luồng làm gốc** (số liệu đúng), chỉ khi phát hiện ký tự `U+FFFD` mới đọc thêm buffered để **thay riêng những chuỗi hỏng**. Số liệu không bao giờ lấy từ buffered.
+
+Ngoài ra bộ đọc luồng **sập hẳn** với file do chính `exceljs` ghi ra (`workbook-reader.js:303` truy cập `this.model` chưa khởi tạo, vì `xl/workbook.xml` nằm cuối zip thay vì đầu). Đã thêm đường lui sang buffered cho trường hợp này — cần thiết vì phần mềm nội bộ rất có thể xuất file theo kiểu đó.
+
+**4. Không copy `promotion.t8.xlsx` vào `test/fixtures/`**
+
+Đặc tả đề nghị copy file mẫu vào thư mục fixture, nhưng đây là dữ liệu kinh doanh thật và `.gitignore` đang loại trừ `*.xlsx`. Thay bằng: test dựng file `.xlsx` trong bộ nhớ bằng `exceljs` cho các ca biên, còn test đối chiếu file thật đọc từ thư mục gốc và **tự bỏ qua** nếu không có file.
+
+### Số đo
+
+| Hạng mục | Kết quả |
+|---|---|
+| Đọc trọn file thật (kể cả bước vá chữ) | ~1.100–1.300 ms — đạt ngưỡng dưới 2 giây |
+| Riêng bộ đọc luồng | ~100 ms |
+| Bước vá chữ | ~1.000 ms — chỉ chạy khi phát hiện chữ hỏng |
+
+Nếu sau này thấy bước vá chữ không đáng giá, bỏ nó đi thì thời gian đọc về ~100 ms, đổi lại chấp nhận nguy cơ hỏng chữ tiếng Việt lẻ tẻ.
+
+### File đã tạo
+
+```
+src/lib/excel/types.ts                cell-value.ts       number-parser.ts
+                date-parser.ts        column-mapper.ts    excel-reader.ts
+                text-repair.ts        row-normalizer.ts   program-grouper.ts
+                promotion-workbook.ts   # đầu mối duy nhất: bytes -> WorkbookReadResult
+```
+
+Mọi file đều dưới 200 dòng (cao nhất là `excel-reader.ts` 153 dòng).
+
 ## Bước kế tiếp
 
-Giai đoạn 04 nhận `WorkbookReadResult` làm đầu vào cho bộ máy luật.
+Giai đoạn 04 nhận `WorkbookReadResult` làm đầu vào cho bộ máy luật. Đầu mối gọi: `readPromotionWorkbook(bytes, fileName)` trong `src/lib/excel/promotion-workbook.ts`.

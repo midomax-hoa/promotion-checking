@@ -34,6 +34,7 @@ src/
   lib/
     haravan/            # tầng gọi API và đồng bộ
     catalog/            # cache danh mục và tra cứu SKU
+    excel/              # đọc và chuẩn hoá file khuyến mãi
     config/             # đọc AppSetting có kiểm tra kiểu
     db/prisma.ts        # Prisma client khởi tạo trễ
     rules/              # danh mục 37 luật kiểm tra
@@ -119,6 +120,51 @@ catalog-store.ts    → ghi xuống Prisma, tính số liệu thống kê
 - Khoá tra cứu là SKU đã chuẩn hoá; giá trị là **mảng** vì Haravan cho phép SKU trùng giữa các biến thể (luật B5 sẽ cảnh báo).
 - SKU rỗng đếm riêng, không bao giờ vào chỉ mục.
 - Bộ nhớ đệm bị xoá ngay sau mỗi lượt đồng bộ.
+
+## Tầng đọc Excel (giai đoạn 03)
+
+Một đầu mối duy nhất: `readPromotionWorkbook(bytes, fileName)` trong `src/lib/excel/promotion-workbook.ts` → `WorkbookReadResult`.
+
+```
+bytes → kiểm chữ ký đầu tệp + giới hạn 20 MB
+      → excel-reader   đọc mọi sheet, giữ số dòng thật, băm SHA-256
+      → column-mapper  dò cột theo từ khoá, không phụ thuộc vị trí
+      → row-normalizer dòng thô → PromotionRow, ghi issues cho ô hỏng
+      → program-grouper gom theo Tên ctkm
+```
+
+### Nguyên tắc: không bao giờ thay thầm lặng
+
+Ô không đọc được thì để `null` và ghi vào `issues`, tuyệt đối không thay bằng giá trị mặc định. Phân biệt rõ **ô trống** (`missing`) với **ô rác** (`unparsable-*`): `Số dư` trống nghĩa là không giới hạn, còn `Số dư = "abc"` là gõ sai. Lỗi công thức (`#DIV/0!`) được giữ nguyên dạng chuỗi để lộ ra thành cảnh báo, không quy về rỗng.
+
+Sheet thiếu cột bắt buộc thì ghi vào `missingRequiredColumns` rồi bỏ qua, **không ném lỗi** — sheet hướng dẫn là chuyện bình thường, và người dùng vẫn cần thấy nó đã được tìm thấy.
+
+### An toàn múi giờ
+
+`exceljs` trả ngày ở mốc **nửa đêm UTC**. Đọc bằng `getDate()` ở múi giờ âm sẽ ra ngày hôm trước — chương trình khuyến mãi chạy sớm 24 giờ. Mọi đường phân tích ngày đều **dựng lại `Date` từ thành phần lịch UTC**, nên ngày người soạn gõ vào là ngày được giữ, bất kể múi giờ máy chủ. Có test chạy dưới `TZ=America/New_York` để khẳng định.
+
+### Ba lỗi của `exceljs` đã né
+
+Đối chiếu với XML gốc của file mẫu, **mỗi bộ đọc sai một kiểu**:
+
+| Ô | Giá trị thật trong XML | Bộ đọc luồng | Bộ đọc buffered |
+|---|---|---|---|
+| `Key!I51` | `<v>0</v>` | `0` ✅ | mất luôn số `0` ❌ |
+| `Key!C801` | `Quả bóng chuyền trẻ em…` | hỏng thành `tr??em` ❌ | đúng ✅ |
+
+1. **Buffered đánh rơi kết quả `0` của ô công thức chia sẻ** — trúng 279 ô, tức toàn bộ chương trình `2608GST0K`. Vì vậy **bộ đọc luồng là nguồn giá trị duy nhất**.
+2. **Luồng làm hỏng ký tự UTF-8 vắt qua ranh giới chunk** (`lib/utils/parse-sax.js:21` giải mã từng chunk riêng, không dùng `StringDecoder`). Phát hiện `U+FFFD` thì đọc thêm buffered và **chỉ thay riêng chuỗi hỏng** — số liệu không bao giờ lấy từ buffered.
+3. **Luồng sập với file do chính `exceljs` ghi** (`workbook-reader.js:303`, `xl/workbook.xml` nằm cuối zip nên `this.model` chưa khởi tạo). Có đường lui sang buffered.
+
+Cả ba đều có test khoá lại, nên khi nâng `exceljs` mà lỗi nào được sửa thì test sẽ báo chứ không trôi qua âm thầm.
+
+### Số đo
+
+| Hạng mục | Kết quả |
+|---|---|
+| Đọc trọn file thật, kể cả bước vá chữ | ~1.100–1.300 ms (ngưỡng: dưới 2 giây) |
+| Riêng bộ đọc luồng | ~100 ms |
+| Bước vá chữ | ~1.000 ms, chỉ chạy khi phát hiện chữ hỏng |
 
 ## Dữ liệu
 
