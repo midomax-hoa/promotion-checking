@@ -123,6 +123,22 @@ export const SYSTEM_FINDING_TITLES: Readonly<Record<string, string>> = {
   [SYSTEM_RECONCILE_DISAGREED]: 'Hai lượt đối soát cho kết quả khác nhau, nên chạy lại',
 }
 
+/** Group headings for the configuration screen, so the wording lives with the codes. */
+export const GROUP_TITLES: Readonly<Record<GroupCode, string>> = {
+  A: 'Nhóm A — Cấu trúc file',
+  B: 'Nhóm B — Đối chiếu danh mục Haravan',
+  C: 'Nhóm C — Số học giá và giảm giá',
+  D: 'Nhóm D — Theo chương trình khuyến mãi',
+  E: 'Nhóm E — Trùng lặp và chồng lấn',
+  F: 'Nhóm F — Đối soát sau import',
+}
+
+export const GROUP_CODES: readonly GroupCode[] = ['A', 'B', 'C', 'D', 'E', 'F']
+
+export function isGroupCode(value: string): value is GroupCode {
+  return (GROUP_CODES as readonly string[]).includes(value)
+}
+
 export const RULE_CODES: readonly string[] = RULE_CATALOG.map((r) => r.code)
 
 export function findRuleDefinition(code: string): RuleDefinition | undefined {

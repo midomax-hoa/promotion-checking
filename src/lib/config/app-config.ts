@@ -90,3 +90,45 @@ export async function getAppConfig(): Promise<AppConfigShape> {
 }
 
 export type AppConfig = AppConfigShape
+
+/**
+ * Same schemas, keyed by the stored setting key, so the configuration screen
+ * rejects a value with exactly the rule the runtime would apply to it. Anything
+ * validated here is guaranteed never to hit the fallback in `resolveField`.
+ */
+const SCHEMA_BY_KEY: ReadonlyMap<string, z.ZodType> = new Map(
+  Object.values(APP_CONFIG_SCHEMA).map(([key, schema]) => [key, schema as z.ZodType]),
+)
+
+/** Zod speaks English; the screen is Vietnamese, and the operator needs the bound spelled out. */
+function vietnameseIssue(issue: z.core.$ZodIssue): string {
+  switch (issue.code) {
+    case 'invalid_type':
+      return issue.expected === 'int' ? 'Phải là số nguyên.' : 'Phải là một con số.'
+    case 'too_big':
+      return `Giá trị tối đa cho phép là ${issue.maximum}.`
+    case 'too_small':
+      return issue.inclusive
+        ? `Giá trị tối thiểu cho phép là ${issue.minimum}.`
+        : `Phải lớn hơn ${issue.minimum}.`
+    default:
+      // Custom refinements already carry a Vietnamese message.
+      return issue.message
+  }
+}
+
+export type SettingValidation = { ok: true } | { ok: false; message: string }
+
+export function validateSettingValue(key: string, raw: string): SettingValidation {
+  const schema = SCHEMA_BY_KEY.get(key)
+  if (!schema) return { ok: false, message: 'Thiết lập này không có trong danh mục cấu hình.' }
+  if (raw.trim() === '') return { ok: false, message: 'Không được để trống.' }
+
+  const parsed = schema.safeParse(raw)
+  if (parsed.success) return { ok: true }
+  const issue = parsed.error.issues[0]
+  return { ok: false, message: issue ? vietnameseIssue(issue) : 'Giá trị không hợp lệ.' }
+}
+
+/** Setting keys the configuration screen may write, i.e. the ones the app actually reads. */
+export const EDITABLE_SETTING_KEYS: readonly string[] = [...SCHEMA_BY_KEY.keys()]

@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/lich-su', label: 'Lịch sử kiểm tra' },
   { href: '/doi-soat', label: 'Đối soát sau import' },
   { href: '/dong-bo', label: 'Đồng bộ danh mục' },
+  { href: '/cau-hinh', label: 'Cấu hình luật' },
 ]
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
