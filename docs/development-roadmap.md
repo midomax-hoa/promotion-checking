@@ -10,7 +10,7 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 02 | Haravan client & đồng bộ danh mục | 01 | ✅ Xong 2026-08-17 |
 | 03 | Đọc & chuẩn hoá file Excel | 01 | ✅ Xong 2026-08-18 |
 | 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ✅ Xong 2026-08-18 |
-| 05 | Màn kiểm tra file & xuất báo cáo | 04 | ⬜ Chưa làm |
+| 05 | Màn kiểm tra file & xuất báo cáo | 04 | ✅ Xong 2026-08-18 |
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ⬜ Chưa làm |
 | 07 | Màn cấu hình luật & tài liệu | 01 | ⬜ Chưa làm |
 | 08 | Triển khai bằng Docker Compose | 05 | ⬜ Chưa làm |
@@ -48,6 +48,14 @@ Nguyên tắc cứng: **thiếu dữ liệu đầu vào thì báo là thiếu**.
 Rủi ro Levenshtein đã thành sự thật và đã xử lý — chi tiết ở [`system-architecture.md`](system-architecture.md#bộ-máy-luật-giai-đoạn-04).
 
 Chi tiết kiến trúc ở [`system-architecture.md`](system-architecture.md).
+
+### Giai đoạn 05 — Màn kiểm tra file & xuất báo cáo (2026-08-18)
+
+Bốn màn hình: tải file lên, kết quả một lần chạy, lịch sử, và tuyến tải file báo cáo về. Toàn bộ lọc, sắp xếp, phân trang chạy trong PostgreSQL — trang kết quả chỉ gửi về trình duyệt 162 B mã JavaScript.
+
+Đo trên file thật: toàn luồng kiểm tra **2,36 giây** (ngưỡng 8 giây), truy vấn một trang 100 dòng đã lọc **4 ms**, dựng file Excel báo cáo 6,37 giây. Chương trình `2608GST0K` nằm đầu bảng với đúng 279 phát hiện mức `critical`.
+
+Thêm bảng `CheckProgram` so với lược đồ giai đoạn 01: bảng chương trình cần hiển thị *số dòng* và cần liệt kê cả chương trình sạch, mà chương trình không có phát hiện nào thì không để lại dấu vết trong bảng `Finding`.
 
 ## Việc còn treo
 

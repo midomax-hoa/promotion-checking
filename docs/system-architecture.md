@@ -29,12 +29,18 @@ Máy phát triển nối PostgreSQL 18 chạy trong WSL, CSDL `promotion_checkin
 ```
 src/
   app/
+    page.tsx            # màn hình ① Tải file lên và kiểm tra
+    ket-qua/[runId]/    # màn hình ② Kết quả một lần chạy
+    lich-su/            # danh sách các lần đã kiểm tra
     dong-bo/            # màn hình ③ Đồng bộ danh mục
+    api/check/          # nhận file tải lên; tuyến con export trả file báo cáo
     api/sync/route.ts   # chạy đồng bộ, phát tiến trình dạng NDJSON
+  components/check/     # thành phần của màn kiểm tra, chỉ upload-panel chạy ở trình duyệt
   lib/
     haravan/            # tầng gọi API và đồng bộ
     catalog/            # cache danh mục và tra cứu SKU
-    excel/              # đọc và chuẩn hoá file khuyến mãi
+    excel/              # đọc, chuẩn hoá và xuất file khuyến mãi
+    check/              # điều phối một lần kiểm tra, lưu trữ và truy vấn kết quả
     config/             # đọc AppSetting có kiểm tra kiểu
     db/prisma.ts        # Prisma client khởi tạo trễ
     rules/              # danh mục 37 luật, bộ máy chạy luật, 31 luật nhóm A–E
@@ -232,15 +238,18 @@ Phần trăm trong file **luôn là thập phân** (0.5 = 50%); chỉ chỗ đ�
 
 ## Dữ liệu
 
-Sáu bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
+Bảy bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
 
 | Bảng | Vai trò |
 |---|---|
 | `VariantCache` | Cache danh mục, khoá chính `variantId` (không phải `sku`, vì SKU trùng và rỗng đều có thật) |
 | `SyncState` | Một dòng duy nhất: mốc đồng bộ, số liệu thống kê |
 | `CheckRun` / `Finding` | Lịch sử kiểm tra và từng phát hiện |
+| `CheckProgram` | Mỗi chương trình của một lần chạy: số dòng và số phát hiện từng mức |
 | `RuleConfig` | 37 luật, bật/tắt và ngưỡng riêng |
 | `AppSetting` | Ngưỡng dùng chung toàn ứng dụng |
+
+`CheckProgram` lưu cả chương trình **không có phát hiện nào**. Đó là lý do nó tồn tại: chương trình sạch không để lại dấu vết trong `Finding`, nên nếu không lưu thì màn kết quả vừa không hiện được số dòng của chương trình, vừa không nói được câu "chương trình này không có vấn đề gì".
 
 `price` lưu kiểu `Float`. Tiền VND là số nguyên dưới 10⁹ nên `double` biểu diễn chính xác; mọi phép so tiền vẫn dùng ngưỡng sai số `check.money_tolerance_vnd`.
 
@@ -280,12 +289,80 @@ Chốt chặn:
 - Trình duyệt ngắt kết nối thì lượt đồng bộ **vẫn chạy tiếp** cho tới hết, để CSDL không bị bỏ dở nửa chừng.
 - Lỗi ghi đầy đủ vào log máy chủ; trình duyệt chỉ nhận thông báo của các lớp lỗi trong danh sách cho phép — lỗi Prisma hay driver chứa tên máy chủ CSDL nên bị thay bằng câu chung.
 
+### `POST /api/check`
+
+Nhận `multipart/form-data` với đúng một trường `file`, trả `{ runId, storedFileName }` kèm mã 201. Trình duyệt sau đó chuyển sang `/ket-qua/{runId}` — trang này dựng phía máy chủ, nên không có phát hiện nào đi qua JSON của tuyến này.
+
+Chốt chặn:
+
+- **Yêu cầu khác nguồn bị từ chối** qua `Sec-Fetch-Site`, trả 403 — cùng lý do như tuyến đồng bộ.
+- **Dung lượng kiểm trước khi nạp vào bộ nhớ**, quá 20 MB trả 413.
+- **Chữ ký đầu tệp kiểm trên byte**, không tin phần mở rộng — đổi tên một file `.zip` thành `.xlsx` không lọt tới bộ phân tích XML. Sai định dạng trả 400 kèm câu giải thích.
+- Lỗi ngoài dự kiến chỉ để lại câu chung cho người dùng, chi tiết nằm trong log máy chủ.
+
+### `GET /api/check/{runId}/export`
+
+Nạp lại file gốc từ `UPLOAD_DIR`, chú thích lên rồi trả về kèm `Content-Disposition`. Tên file tiếng Việt đi qua `filename*` theo RFC 5987, `filename` thường chỉ là bản rút gọn ASCII.
+
+Ba mã trả về đáng lưu ý: 404 khi không có lần chạy đó, **410 khi file gốc đã bị dọn theo hạn lưu** (lần chạy vẫn còn, kết quả vẫn xem được — chỉ không xuất báo cáo được nữa), 500 cho lỗi ngoài dự kiến.
+
+## Màn kiểm tra file (giai đoạn 05)
+
+Luồng một lần kiểm tra, từ byte tới màn hình:
+
+```
+byte tải lên
+  -> readPromotionWorkbook()     # kiểm chữ ký, đọc mọi sheet, chuẩn hoá dòng
+  -> checkWorkbook()             # nạp cache danh mục + RuleConfig, chạy 31 luật
+  -> saveCheckRun()              # CheckRun + CheckProgram + Finding, một giao dịch
+  -> saveUploadedFile()          # ghi file gốc xuống UPLOAD_DIR
+```
+
+**Thứ tự hai bước cuối là cố ý.** Lần chạy được ghi vào CSDL trước, file gốc ghi xuống đĩa sau: một lần chạy không có file vẫn hiện đủ mọi phát hiện trên màn hình, còn một file không có lần chạy thì chẳng hiện được gì. Đĩa hỏng làm mất nút xuất báo cáo, không làm mất kết quả kiểm tra.
+
+`Finding` ghi theo lô 1.000 dòng, hạn giao dịch nâng lên 60 giây thay cho mặc định 5 giây của Prisma — một file 4.000 dòng ghi vài nghìn dòng phát hiện, quá hạn mặc định vì *lớn* chứ không phải vì *treo*.
+
+### Lọc và phân trang phía máy chủ
+
+Bộ lọc nằm trong địa chỉ trang, khoá tiếng Việt: `muc` (mức độ), `luat` (mã luật), `ctkm` (tên chương trình), `sku`, `mo` (chương trình đang mở rộng), `trang`. Mọi nút lọc là thẻ liên kết hoặc biểu mẫu `GET` — không có `onChange`, không có trạng thái phía trình duyệt.
+
+Đổi lại được ba thứ: tải lại trang giữ nguyên bộ lọc, gửi đường dẫn cho đồng nghiệp là họ thấy đúng cái mình đang xem, và **trang kết quả biên dịch ra 162 B mã JavaScript** — 3.931 dòng không bao giờ rời khỏi máy chủ.
+
+Mở rộng một chương trình cũng là một liên kết. Phát hiện của chương trình đó nạp riêng phía máy chủ, mở một chương trình không kéo theo 153 chương trình còn lại.
+
+### Xuất báo cáo Excel
+
+File xuất ra là để **gửi lại cho người lập file sửa**, nên file gốc được nạp lại rồi chú thích lên, không dựng lại từ đầu. Chỉ thêm ba thứ:
+
+1. Tô nền dòng theo mức nặng nhất của dòng đó — một dòng vừa `warn` vừa `critical` phải đỏ, tô vàng là giấu mất chỗ chặn import.
+2. Hai cột cuối `Cảnh báo` và `Gợi ý sửa`, gộp nhiều phát hiện trên cùng một dòng, gợi ý trùng chỉ ghi một lần.
+3. Sheet `Tổng hợp` đặt trước các sheet của người dùng, kèm thống kê theo mã luật và danh sách phát hiện không gắn với dòng nào.
+
+Sheet **không có phát hiện nào thì không bị đụng tới** — một tab hướng dẫn hay ghi chú phải trở về đúng như lúc gửi đi, không dính thêm hai cột lạ và mũi tên lọc. Dòng tiêu đề cũng không mặc định là dòng 1 mà dò theo dòng đầu tiên có dữ liệu, khớp với cách tầng đọc xác định tiêu đề.
+
+Ba điểm phải né:
+
+- **Trùng tên sheet.** `exceljs` ném lỗi khi thêm một sheet trùng tên sheet có sẵn, mà `Tổng hợp` là tên tab hết sức bình thường của một file tiếng Việt. Tên sheet báo cáo được dò cho tới khi trống, nếu không thì file như vậy sẽ kiểm tra bình thường rồi không bao giờ xuất báo cáo được.
+
+- **Thứ tự sheet** đặt qua thuộc tính `orderNo` của `exceljs`. Thuộc tính có thật và được tôn trọng lúc ghi (kiểm chứng bằng ghi rồi đọc lại, `exceljs` 4.4, 2026-08-18) nhưng thiếu trong phần khai báo kiểu, nên mã phải khai một kiểu phụ.
+- **Hai cột thêm vào đặt sau `columnCount`**, không phải sau cột cuối có dữ liệu. Với `promotion.t8.xlsx`, `exceljs` báo `columnCount` là 15 trong khi chỉ 14 cột có dữ liệu, nên file xuất ra có một cột trống xen giữa. Chấp nhận có chủ đích: cột 15 có thể đang mang định dạng của người lập file.
+
+### Lưu file gốc
+
+Thư mục lấy từ `UPLOAD_DIR`, mặc định `./.uploads` khi phát triển. Tên lưu là `{runId}-{tên gốc đã làm sạch}.xlsx`, ghi vào `CheckRun.storedFileName`.
+
+Tên file là chuỗi duy nhất trong tính năng này có thể biến thành một đường dẫn tuỳ ý, nên bị chặn hai lớp: lúc ghi, tên gốc bị viết lại chỉ còn `[A-Za-z0-9-]` và ép đuôi `.xlsx`; lúc đọc, đường dẫn giải ra được kiểm lại là còn nằm trong thư mục lưu — kể cả khi giá trị đó lấy từ CSDL.
+
+File mất (bị dọn theo hạn lưu, hoặc chưa từng ghi được) **không phải lỗi**: màn kết quả thay nút xuất bằng câu "file gốc đã hết hạn lưu, tải lên lại để xuất báo cáo".
+
 ## Bảo mật
 
 - `HARAVAN_API_TOKEN` chỉ đọc phía máy chủ, không có tiền tố `NEXT_PUBLIC_`, chỉ đọc ở đúng một chỗ trong `haravan-client.ts`.
 - Token bị thay bằng `***` trong nội dung phản hồi nhúng vào thông báo lỗi — biến lời hứa thành ràng buộc thật, không phải quy ước.
 - `BigInt` chuyển thành chuỗi tại ranh giới server ↔ trình duyệt (`src/lib/serialization/bigint.ts`). `SyncResult` không mang `BigInt` nào.
 - Không có lệnh ghi nào lên Haravan trong toàn bộ mã nguồn.
+- File tải lên chỉ được đọc như dữ liệu, không bao giờ thực thi. Chữ ký đầu tệp kiểm trên byte; dung lượng chặn theo `Content-Length` **trước** khi chạm vào thân yêu cầu, vì `formData()` đã dựng xong mọi phần trong bộ nhớ rồi mới trả về — kiểm sau đó là kiểm khi đã trả giá.
+- Tên file lưu trữ bị viết lại và đường dẫn giải ra được kiểm lại ở cả chiều ghi lẫn chiều đọc, nên một dòng CSDL bị sửa tay cũng không đọc được file ngoài thư mục lưu.
 
 ## Số liệu đo được (store dev, 2026-08-17)
 
@@ -305,3 +382,7 @@ Chốt chặn:
 - Đồng bộ tăng dần không thấy sản phẩm bị xoá — chạy đồng bộ đầy đủ định kỳ, màn hình ③ có sẵn nút.
 - Biến thể chuyển từ sản phẩm A sang B có thể biến mất khỏi cache tới lượt đồng bộ đầy đủ kế tiếp, nếu Haravan không cập nhật `updated_at` của B. **Chưa kiểm chứng được** vì công cụ này chỉ đọc.
 - `duplicateSkuCount` đếm số **nhóm** SKU trùng, không phải số biến thể dính trùng.
+- Xuất báo cáo Excel mất ~6,4 giây cho file 3.930 dòng. Gần như toàn bộ là thời gian `exceljs` ghi lại tệp: đo riêng lệnh ghi mà không sửa gì cũng ~6,9 giây, nên tối ưu phần chú thích không giúp gì.
+- `scripts/prune-uploads.sh` thuộc giai đoạn 08, chưa viết — hiện chưa có gì dọn thư mục `.uploads/`.
+- Các lần chạy tạo trước migration `add_check_program` không có dòng `CheckProgram` nào, nên bảng chương trình của chúng hiện trống.
+- Trang lịch sử hiện 100 lần chạy gần nhất, chưa có phân trang. Đủ dùng ở nhịp hiện tại, sẽ phải xem lại nếu chuyển sang kiểm tra hằng ngày nhiều file.

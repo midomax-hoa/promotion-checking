@@ -2,6 +2,65 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 05: Màn kiểm tra file & xuất báo cáo
+
+### Thêm mới
+
+**Điều phối & lưu trữ** (`src/lib/check/`)
+
+- `run-file-check.ts` — đầu mối toàn luồng: đọc file → chạy luật → ghi CSDL → lưu file gốc
+- `check-run-store.ts` — ghi `CheckRun` + `CheckProgram` + `Finding` theo lô 1.000 dòng trong một giao dịch
+- `upload-storage.ts` — lưu và đọc lại file gốc trong `UPLOAD_DIR` (mặc định `./.uploads`)
+- `finding-filter.ts` — đọc và dựng bộ lọc từ địa chỉ trang, thuần, không chạm CSDL
+- `finding-queries.ts` — mọi truy vấn của màn kết quả
+
+**Xuất báo cáo Excel** (`src/lib/excel/`)
+
+- `report-exporter.ts` — nạp lại file gốc rồi chú thích lên, không dựng lại từ đầu
+- `report-summary-sheet.ts` — sheet `Tổng hợp` đặt trước các sheet của người dùng
+- `report-styles.ts` — màu theo mức và luật "mức nặng nhất thắng"
+
+**Màn hình & tuyến API**
+
+- `src/app/page.tsx` — màn tải file lên
+- `src/app/ket-qua/[runId]/page.tsx` — kết quả một lần chạy, mở lại được bất cứ lúc nào
+- `src/app/lich-su/page.tsx` — 100 lần kiểm tra gần nhất
+- `src/app/api/check/route.ts` — nhận `multipart/form-data`, giới hạn 20 MB, chặn yêu cầu từ trang khác
+- `src/app/api/check/[runId]/export/route.ts` — trả file báo cáo kèm `Content-Disposition`
+- `src/components/check/` — 7 thành phần giao diện, chỉ `upload-panel.tsx` chạy phía trình duyệt
+
+**Kiểm thử** — thêm 46 test trong `test/check/` và `test/excel/report-exporter.test.ts`; tổng dự án 386 test
+
+### Thay đổi lược đồ dữ liệu
+
+Migration `20260818032206_add_check_program` thêm bảng `CheckProgram` (tên chương trình, số dòng, số phát hiện từng mức, khoá duy nhất theo `runId` + `name`).
+
+Lý do: màn kết quả phải hiện *số dòng* của chương trình và phải liệt kê cả chương trình sạch. Chương trình không có phát hiện nào thì không để lại dấu vết trong bảng `Finding`, nên hai thứ đó không suy ra được từ dữ liệu đang có.
+
+### Đo trên file thật `promotion.t8.xlsx`
+
+| Việc | Thời gian |
+|---|---|
+| Toàn luồng kiểm tra | 2,36 giây (ngưỡng 8 giây) |
+| Truy vấn một trang 100 dòng đã lọc | 4 ms |
+| Dựng file Excel báo cáo | 6,37 giây, 359 KB |
+
+3.931 dòng, 156 chương trình, 2 sheet. Chương trình `2608GST0K` đầu bảng với đúng 279 phát hiện mức `critical`.
+
+### Sửa sau rà soát mã
+
+- **Chương trình không có tên bị báo là sạch.** Rổ `(không có tên)` của bộ gom nhóm không khớp với `programName` `null` mà phát hiện mức dòng ghi ra, nên bảng chương trình hiện `✓ không có vấn đề` cho một chương trình đầy lỗi. `rowRef` nay dùng chung `programKey` với bộ gom nhóm.
+- **File có sẵn sheet tên `Tổng hợp` thì không xuất báo cáo được.** `exceljs` ném lỗi khi trùng tên sheet; tên sheet báo cáo nay được dò cho tới khi trống.
+- **Giới hạn dung lượng kiểm sau khi thân yêu cầu đã nằm hết trong bộ nhớ.** `Content-Length` nay bị chặn trước `formData()`.
+- File `.xls` thật trả 400 kèm hướng dẫn thay vì 500; sheet không có phát hiện nào được trả về nguyên vẹn; dòng tiêu đề dò theo dòng đầu tiên có dữ liệu thay vì mặc định dòng 1.
+
+### Quyết định đáng ghi
+
+- **Bộ lọc nằm trong địa chỉ trang**, khoá tiếng Việt (`muc`, `luat`, `ctkm`, `sku`, `mo`, `trang`). Tải lại trang giữ nguyên bộ lọc, gửi đường dẫn cho đồng nghiệp là họ thấy đúng cái mình đang xem.
+- **Lưu CSDL trước, ghi file gốc sau.** Đĩa hỏng thì mất nút xuất báo cáo, không mất kết quả kiểm tra.
+- **Tên file lưu trữ bị viết lại thành `[A-Za-z0-9-]`** và đường dẫn giải ra được kiểm lại là còn nằm trong thư mục lưu, ở cả hai chiều ghi và đọc.
+- **Hai cột thêm vào đặt sau `columnCount`** của `exceljs`, chấp nhận một cột trống xen giữa, để không ghi đè lên cột nào của người lập file.
+
 ## 2026-08-18 — Giai đoạn 04: Bộ máy luật (nhóm A–E)
 
 ### Thêm mới
