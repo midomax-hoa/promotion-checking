@@ -37,6 +37,7 @@ next-env.d.ts
 .agents/
 .agent/
 .cursor/
+.playwright-mcp/
 
 # Misc
 .DS_Store
