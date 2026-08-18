@@ -16,6 +16,7 @@ promotion*.xlsx
 
 # Uploaded Excel files kept for report export (see phase 08)
 .uploads/
+.test-uploads/
 uploads/
 
 # Build output

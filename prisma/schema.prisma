@@ -59,9 +59,29 @@ model CheckRun {
 
   catalogSyncedAt DateTime? // catalog freshness snapshot at run time
   findings        Finding[]
+  programs        CheckProgram[]
 
   @@index([createdAt]) // history list, newest first
   @@index([fileHash]) // "this file was already checked" lookup
+}
+
+/// One promotion program as it appeared in the uploaded file.
+///
+/// Stored rather than recomputed because the result screen must show every
+/// program - including the clean ones - and its row count, long after the
+/// uploaded file has been pruned from disk.
+model CheckProgram {
+  id       String   @id @default(cuid())
+  runId    String
+  run      CheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  name     String
+  rowCount Int
+
+  countCritical Int @default(0)
+  countDanger   Int @default(0)
+  countWarn     Int @default(0)
+
+  @@unique([runId, name]) // also serves as the per-run lookup index
 }
 
 model Finding {
