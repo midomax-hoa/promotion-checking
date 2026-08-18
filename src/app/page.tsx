@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { CatalogFreshnessAlert } from '@/components/check/catalog-freshness-alert'
 import { UploadPanel } from '@/components/check/upload-panel'
+import { PageShell } from '@/components/shell/page-shell'
 
 /**
  * Screen 1 - upload and check.
@@ -14,15 +15,11 @@ export const dynamic = 'force-dynamic'
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Kiểm tra file khuyến mãi</h1>
-        <p className="text-sm text-muted-foreground">
-          Tải file Excel lên để biết nó import vào Haravan được chưa, sai chỗ nào và sửa thế nào —
-          trước khi import.
-        </p>
-      </header>
-
+    <PageShell
+      title="Kiểm tra file khuyến mãi"
+      description="Tải file Excel lên để biết nó import vào Haravan được chưa, sai chỗ nào và sửa thế nào — trước khi import."
+      width="narrow"
+    >
       <CatalogFreshnessAlert />
       <UploadPanel />
 
@@ -33,6 +30,6 @@ export default function HomePage() {
         </Link>
         .
       </p>
-    </main>
+    </PageShell>
   )
 }

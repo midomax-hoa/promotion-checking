@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { AppSidebar } from '@/components/shell/app-sidebar'
 import { ThemeScript } from '@/components/theme/theme-script'
-import { ThemeToggle } from '@/components/theme/theme-toggle'
 import './globals.css'
 
 // Geist has no `vietnamese` subset, so Vietnamese diacritics would fall back to a system font.
@@ -14,14 +13,8 @@ export const metadata: Metadata = {
   description: 'Công cụ kiểm tra và đối soát file import khuyến mãi Haravan',
 }
 
-/** Screens are added phase by phase; only the ones that exist are linked. */
-const NAV_ITEMS = [
-  { href: '/', label: 'Kiểm tra file' },
-  { href: '/lich-su', label: 'Lịch sử kiểm tra' },
-  { href: '/doi-soat', label: 'Đối soát sau import' },
-  { href: '/dong-bo', label: 'Đồng bộ danh mục' },
-  { href: '/cau-hinh', label: 'Cấu hình luật' },
-]
+/** Target of the skip link, and the landmark every screen renders into. */
+const CONTENT_ID = 'noi-dung'
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -35,19 +28,22 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ThemeScript />
       </head>
       <body className="antialiased">
-        <nav className="border-b">
-          <div className="mx-auto flex max-w-4xl items-center gap-4 p-4 text-sm">
-            {NAV_ITEMS.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:underline">
-                {item.label}
-              </Link>
-            ))}
-            <span className="ml-auto">
-              <ThemeToggle />
-            </span>
-          </div>
-        </nav>
-        {children}
+        {/* First thing Tab reaches, so five sidebar links are not the toll for
+            getting to the page a keyboard user actually came for. */}
+        <a
+          href={`#${CONTENT_ID}`}
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-60 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+        >
+          Nhảy tới nội dung
+        </a>
+        <div className="flex min-h-svh flex-col lg:flex-row">
+          <AppSidebar />
+          {/* min-w-0 so a wide table scrolls inside its own box instead of
+              stretching the grid and dragging the whole page sideways. */}
+          <main id={CONTENT_ID} className="min-w-0 flex-1">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   )

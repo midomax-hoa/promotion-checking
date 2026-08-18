@@ -3,6 +3,7 @@ import { CatalogFreshnessAlert } from '@/components/check/catalog-freshness-aler
 import { ReconcileRunner } from '@/components/reconcile/reconcile-runner'
 import { loadReconcileHistory, loadReconcileSources } from '@/lib/reconcile/reconcile-queries'
 import { SeverityCount } from '@/components/check/severity-badge'
+import { PageShell } from '@/components/shell/page-shell'
 
 /**
  * Screen 5 - reconcile after import.
@@ -32,15 +33,11 @@ export default async function ReconcilePage() {
   ])
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Đối soát sau import</h1>
-        <p className="text-sm text-muted-foreground">
-          So từng chương trình trong file với chương trình thật trên Haravan, để biết lần import
-          vừa rồi có đúng không.
-        </p>
-      </header>
-
+    <PageShell
+      title="Đối soát sau import"
+      description="So từng chương trình trong file với chương trình thật trên Haravan, để biết lần import vừa rồi có đúng không."
+      width="medium"
+    >
       <CatalogFreshnessAlert />
 
       <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -78,6 +75,6 @@ export default async function ReconcilePage() {
           </div>
         )}
       </section>
-    </main>
+    </PageShell>
   )
 }

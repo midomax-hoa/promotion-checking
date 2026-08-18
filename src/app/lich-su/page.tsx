@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { SeverityCount } from '@/components/check/severity-badge'
+import { PageShell } from '@/components/shell/page-shell'
 import { loadHistory } from '@/lib/check/check-run-history'
 
 /**
@@ -25,14 +26,11 @@ export default async function HistoryPage() {
   const runs = await loadHistory(HISTORY_LIMIT)
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Lịch sử kiểm tra</h1>
-        <p className="text-sm text-muted-foreground">
-          {HISTORY_LIMIT} lần kiểm tra gần nhất, mới nhất lên đầu.
-        </p>
-      </header>
-
+    <PageShell
+      title="Lịch sử kiểm tra"
+      description={`${HISTORY_LIMIT} lần kiểm tra gần nhất, mới nhất lên đầu.`}
+      width="medium"
+    >
       {runs.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Chưa có lần kiểm tra nào.{' '}
@@ -63,6 +61,6 @@ export default async function HistoryPage() {
           ))}
         </div>
       )}
-    </main>
+    </PageShell>
   )
 }

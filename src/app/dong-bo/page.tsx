@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { getAppConfig } from '@/lib/config/app-config'
 import { prismaCatalogStore } from '@/lib/catalog/catalog-store'
+import { PageShell } from '@/components/shell/page-shell'
 import { SyncRunner } from './sync-runner'
 
 /**
@@ -19,15 +20,11 @@ export default async function CatalogSyncPage() {
   const isStale = ageMs === null || ageMs > staleAfterMs
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Đồng bộ danh mục</h1>
-        <p className="text-sm text-muted-foreground">
-          Kéo toàn bộ sản phẩm và biến thể từ Haravan về cache. Việc kiểm tra SKU tồn tại đọc cache
-          này, không gọi API từng SKU.
-        </p>
-      </header>
-
+    <PageShell
+      title="Đồng bộ danh mục"
+      description="Kéo toàn bộ sản phẩm và biến thể từ Haravan về cache. Việc kiểm tra SKU tồn tại đọc cache này, không gọi API từng SKU."
+      width="narrow"
+    >
       {isStale ? (
         <Alert variant="destructive">
           <AlertTitle>
@@ -64,7 +61,7 @@ export default async function CatalogSyncPage() {
         Đồng bộ tăng dần chỉ lấy sản phẩm thay đổi sau mốc phía trên nên rất nhanh, nhưng không phát
         hiện được sản phẩm đã bị xoá. Chạy &ldquo;Đồng bộ lại từ đầu&rdquo; định kỳ để dọn sạch.
       </p>
-    </main>
+    </PageShell>
   )
 }
 

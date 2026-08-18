@@ -1,5 +1,6 @@
 import { AppSettingForm } from '@/components/config/app-setting-form'
 import { RuleConfigTable } from '@/components/config/rule-config-table'
+import { PageShell } from '@/components/shell/page-shell'
 import { prisma } from '@/lib/db/prisma'
 import { loadRuleConfigs } from '@/lib/rules/rule-config-store'
 
@@ -22,15 +23,11 @@ export default async function ConfigPage() {
   const values = Object.fromEntries(settingRows.map((row) => [row.key, row.value]))
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-8 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Cấu hình luật kiểm tra</h1>
-        <p className="text-sm text-muted-foreground">
-          Mọi ngưỡng đều sửa được ở đây, không có con số nào bị chôn cứng trong mã nguồn. Giá trị
-          khác mặc định được tô nền nhạt kèm ghi chú giá trị gốc.
-        </p>
-      </header>
-
+    <PageShell
+      title="Cấu hình luật kiểm tra"
+      description="Mọi ngưỡng đều sửa được ở đây, không có con số nào bị chôn cứng trong mã nguồn. Giá trị khác mặc định được tô nền nhạt kèm ghi chú giá trị gốc."
+      width="medium"
+    >
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Thiết lập chung</h2>
         <AppSettingForm values={values} />
@@ -49,6 +46,6 @@ export default async function ConfigPage() {
         Cấu hình áp dụng ngay cho lần kiểm tra kế tiếp. Kết quả đã lưu trước đó giữ nguyên, vì mỗi
         lần chạy ghi lại số phát hiện tại thời điểm đó.
       </p>
-    </main>
+    </PageShell>
   )
 }

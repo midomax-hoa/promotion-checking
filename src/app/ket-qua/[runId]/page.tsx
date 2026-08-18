@@ -6,6 +6,7 @@ import { FindingTable } from '@/components/check/finding-table'
 import { FindingList } from '@/components/check/finding-row'
 import { ProgramTable } from '@/components/check/program-table'
 import { SummaryCards } from '@/components/check/summary-cards'
+import { PageShell } from '@/components/shell/page-shell'
 import { parseFindingFilter, type SearchParamsInput } from '@/lib/check/finding-filter'
 import {
   loadCheckRun,
@@ -50,14 +51,18 @@ export default async function CheckResultPage({
   ])
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href="/" className="text-sm underline">
-          ← Kiểm tra file khác
-        </Link>
-        <ExportButton runId={runId} available={run.storedFileName !== null} />
-      </div>
-
+    <PageShell
+      title="Kết quả kiểm tra"
+      width="full"
+      actions={
+        <>
+          <Link href="/" className="text-sm underline">
+            ← Kiểm tra file khác
+          </Link>
+          <ExportButton runId={runId} available={run.storedFileName !== null} />
+        </>
+      }
+    >
       <SummaryCards run={run} />
       <CatalogSnapshotNote catalogSyncedAt={run.catalogSyncedAt} />
 
@@ -80,7 +85,7 @@ export default async function CheckResultPage({
         <FindingFilters basePath={basePath} filter={filter} ruleCodes={ruleCodes} />
         <FindingTable basePath={basePath} filter={filter} page={page} />
       </section>
-    </main>
+    </PageShell>
   )
 }
 

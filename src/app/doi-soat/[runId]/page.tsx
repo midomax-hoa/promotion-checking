@@ -4,6 +4,7 @@ import { CatalogSnapshotNote } from '@/components/check/catalog-freshness-alert'
 import { FindingList } from '@/components/check/finding-row'
 import { SeverityBadge } from '@/components/check/severity-badge'
 import { DiffTable } from '@/components/reconcile/diff-table'
+import { PageShell } from '@/components/shell/page-shell'
 import { loadCheckRun, loadFindingPage } from '@/lib/check/finding-queries'
 import { getAppConfig } from '@/lib/config/app-config'
 import { loadReconcileMatches } from '@/lib/reconcile/reconcile-queries'
@@ -80,16 +81,18 @@ export default async function ReconcileResultPage({
   const percentTolerance = Number(findRuleDefinition('F2')?.defaultParams?.percentTolerance ?? 0.01)
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <PageShell
+      title="Kết quả đối soát"
+      description={run.fileName}
+      width="full"
+      actions={
         <Link href="/doi-soat" className="text-sm underline">
           ← Đối soát lần khác
         </Link>
-        <span className="text-sm text-muted-foreground">{run.fileName}</span>
-      </div>
-
+      }
+    >
       <section className={`flex flex-col gap-2 rounded-lg border p-4 ${summary.className}`}>
-        <h1 className="text-xl font-semibold">{summary.headline}</h1>
+        <h2 className="text-xl font-semibold">{summary.headline}</h2>
         <p className="text-sm">{summary.detail}</p>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <SeverityBadge severity="critical" count={counts.critical} variant="long" />
@@ -129,6 +132,6 @@ export default async function ReconcileResultPage({
           }}
         />
       </section>
-    </main>
+    </PageShell>
   )
 }
