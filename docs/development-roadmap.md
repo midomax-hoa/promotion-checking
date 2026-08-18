@@ -11,7 +11,7 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 03 | Đọc & chuẩn hoá file Excel | 01 | ✅ Xong 2026-08-18 |
 | 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ✅ Xong 2026-08-18 |
 | 05 | Màn kiểm tra file & xuất báo cáo | 04 | ✅ Xong 2026-08-18 |
-| 06 | Màn đối soát sau import (nhóm F) | 04 | ⬜ Chưa làm |
+| 06 | Màn đối soát sau import (nhóm F) | 04 | ✅ Xong 2026-08-18 |
 | 07 | Màn cấu hình luật & tài liệu | 01 | ⬜ Chưa làm |
 | 08 | Triển khai bằng Docker Compose | 05 | ⬜ Chưa làm |
 
@@ -57,16 +57,42 @@ Bốn màn hình: tải file lên, kết quả một lần chạy, lịch sử, 
 
 Thêm bảng `CheckProgram` so với lược đồ giai đoạn 01: bảng chương trình cần hiển thị *số dòng* và cần liệt kê cả chương trình sạch, mà chương trình không có phát hiện nào thì không để lại dấu vết trong bảng `Finding`.
 
+### Giai đoạn 06 — Màn đối soát sau import (2026-08-18)
+
+Nhóm luật F (6 luật), cơ chế đối soát hai lượt, màn hình ⑤ và ⑥, bảng so ba cột.
+
+Kéo `GET /com/promotions.json` về, khớp theo tên chương trình, chạy F1–F6, lưu vào `CheckRun`
+với `mode = "reconcile"` kèm bảng `ReconcileMatch` chụp lại cả hai phía.
+
+Bốn điều chỉnh so với kế hoạch, tất cả đến từ gọi thật lên store dev — bằng chứng ở
+[báo cáo kiểm chứng](../plans/reports/verification-260818-1046-haravan-promotions-api.md):
+
+- Đường dẫn là `/com/promotions.json`, không phải `/promotions.json` (bản kia trả 404)
+- Không có `promotions/count.json` (trả 422), nên không đối chiếu được tổng số
+- Máy chủ **bỏ qua mọi bộ lọc truy vấn**, phải kéo hết rồi lọc trong bộ nhớ
+- CTKM thật đính theo `entitled_product_ids` chứ không phải `entitled_variant_ids`, nên luật F5
+  quy đổi cả hai về số biến thể qua cache danh mục; tra không ra thì bỏ qua, không kết luận
+
+Đo trên store dev: một lượt đối soát đủ hai lượt hết 8,5 giây (8 giây là khoảng chờ cố ý).
+Luật F3 im lặng đúng với ca `2026-07-22T08:11:00Z` ↔ 15:11 giờ Việt Nam, F2 im lặng đúng với ca
+file ghi `0.1` còn Haravan ghi `10`. Tổng 475 test pass; `typecheck`, `lint`, `build` sạch.
+
+Thêm hai migration: `add_reconcile_match` và `add_reconcile_match_sku_count`. Thêm cấu hình
+`shop.timezone_offset_minutes` (mặc định 420) — độ lệch múi giờ không chôn cứng trong mã nguồn.
+
+Luật D8 và E3 của nhóm trước cũng được nối vào màn kiểm tra file ở giai đoạn này, vì đây là lúc
+danh sách khuyến mãi có sẵn. Gọi API hỏng thì việc kiểm tra vẫn chạy, hai luật đó ghi là bỏ qua.
+
 ## Việc còn treo
 
 | Việc | Vì sao còn treo | Cần làm gì |
 |---|---|---|
 | Ngân sách 30 giây cho 3.000 sản phẩm | Store dev chỉ có 74 sản phẩm nên chưa đo được | Chạy đồng bộ đầy đủ trên store thật, đo thời gian. Đòn bẩy nếu chậm: nâng `haravan.requests_per_second` tới 4, hoặc nới cửa sổ tải trước |
 | Hành vi `not_allow_promotion` khi bật | Store dev toàn `false` | Cần một sản phẩm thật có cờ này để biết Haravan xử lý ra sao. Luật B6 tạm để mức `danger`; nâng lên `critical` phải **ghi** lên Haravan (bật cờ thử) nên chờ xác nhận trước khi làm |
-| Luật D8 và E3 chưa chạy với dữ liệu thật | Cần danh sách khuyến mãi đang có trên Haravan, mà `promotion-fetcher.ts` thuộc giai đoạn 06 | Giai đoạn 06 ánh xạ phản hồi API sang kiểu `HaravanPromotion` trong `src/lib/rules/types.ts`. Hiện hai luật nằm trong `skippedRules`, không bị bỏ qua âm thầm |
+| Phân trang `promotions.json` | Store dev chỉ có **1** chương trình nên chưa xác định được `limit` có bị ép về 50 như `products.json` hay không | Chạy trên store thật rồi đọc lại. Cách hiện tại (học kích thước trang thật từ trang đầu) đúng với cả hai khả năng, nên đây là việc xác nhận chứ không phải việc sửa |
+| Trường `set_time_active` | Bản ghi duy nhất trên store dev để `false` | Chưa rõ nó ảnh hưởng ra sao tới `starts_at`/`ends_at`. Nếu ảnh hưởng thì luật F3 cần tính thêm |
 | Nhóm B chưa đối chiếu danh mục thật | Store dev không có 3.929 mã hiệu của file mẫu | Đồng bộ cửa hàng thật rồi chạy lại, đo số mã hiệu không tra ra và chất lượng gợi ý của B1 |
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
-| `promotion-fetcher.ts` | Chỉ giai đoạn 06 dùng — YAGNI | Viết khi làm giai đoạn 06, dùng lại `HaravanClient` sẵn có |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |
 
 ## Định nghĩa hoàn thành của cả dự án
@@ -74,5 +100,5 @@ Thêm bảng `CheckProgram` so với lược đồ giai đoạn 01: bảng chư�
 - Nạp file mẫu → phát hiện đúng 279 dòng giảm 0đ của chương trình `2608GST0K`, báo rõ chương trình này sẽ bị Haravan từ chối
 - Liệt kê đầy đủ SKU không tồn tại trên Haravan kèm gợi ý SKU gần giống
 - Kiểm tra một file dưới 5 giây khi cache danh mục đã sẵn sàng
-- Đối soát sau import không báo oan do trễ chỉ mục
-- Không phát sinh bất kỳ lệnh ghi nào lên Haravan
+- Đối soát sau import không báo oan do trễ chỉ mục — ✅ cơ chế hai lượt, có test giả lập trễ chỉ mục
+- Không phát sinh bất kỳ lệnh ghi nào lên Haravan — ✅ `HaravanClient` chỉ phơi ra phương thức `get`

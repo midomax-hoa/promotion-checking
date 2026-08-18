@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — đây là câu trả lời cuối cùng cho *"tôi import đúng hay sai"*
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** Xong 2026-08-18
 - Kéo chương trình từ Haravan về, so từng dòng với file Excel gốc, chỉ ra chỗ lệch.
 
 ## Nhận định quan trọng
@@ -134,14 +134,14 @@ Bổ sung: khi `status = 'ambiguous'` (trùng tên) thì F1–F5 **không kết 
 
 ## Danh sách việc
 
-- [ ] `promotion-fetcher.ts` phân trang + test
-- [ ] `promotion-matcher.ts` 4 trạng thái + test
-- [ ] `reconcile-engine.ts` hai lượt + test giả lập trễ chỉ mục
-- [ ] So sánh mốc thời gian có xử lý múi giờ + test
-- [ ] F1–F6 + test
-- [ ] Màn hình đối soát + bảng ba cột
-- [ ] Tuyến API chạy đối soát có tiến trình
-- [ ] Kiểm thử đầu-cuối trên store dev rồi dọn sạch
+- [x] `promotion-fetcher.ts` phân trang + test
+- [x] `promotion-matcher.ts` 4 trạng thái + test
+- [x] `reconcile-engine.ts` hai lượt + test giả lập trễ chỉ mục
+- [x] So sánh mốc thời gian có xử lý múi giờ + test
+- [x] F1–F6 + test
+- [x] Màn hình đối soát + bảng ba cột
+- [x] Tuyến API chạy đối soát có tiến trình
+- [x] Kiểm thử đầu-cuối trên store dev (chỉ đọc, không tạo chương trình nào)
 
 ## Tiêu chí hoàn thành
 
@@ -151,6 +151,45 @@ Bổ sung: khi `status = 'ambiguous'` (trùng tên) thì F1–F5 **không kết 
 - So `2019-12-31T17:00:00Z` với `2020-01-01 00:00` giờ Việt Nam → **không** báo lệch
 - Bảng ba cột hiện đúng chênh lệch giá trị, ngày, số SKU
 - Toàn bộ giai đoạn không phát sinh lệnh ghi nào lên Haravan (đã rà lại mã nguồn)
+
+## Đã làm khác kế hoạch, và vì sao
+
+Bốn điểm dưới đây đến từ việc gọi thật lên store dev ngày 2026-08-18. Bằng chứng đầy đủ:
+[báo cáo kiểm chứng](../reports/verification-260818-1046-haravan-promotions-api.md).
+
+| Kế hoạch ghi | Thực tế | Đã xử lý |
+|---|---|---|
+| `GET /promotions.json` | Trả 404; đường dẫn đúng là `/com/promotions.json` | Sửa đường dẫn |
+| Lọc theo khoảng ngày khi gọi | Máy chủ **bỏ qua mọi bộ lọc** (`?status=disabled` vẫn trả CTKM đang bật) | Kéo hết rồi lọc trong bộ nhớ, chỉ dùng để giảm nhiễu ở F6 |
+| F5 đếm `entitled_variant_ids` | CTKM thật có mảng đó **rỗng**, thay vào đó `entitled_product_ids` có 18 sản phẩm | Quy đổi cả hai về số biến thể qua cache danh mục; không tra được thì bỏ qua F5 |
+| — | Không có `promotions/count.json` (trả 422) | Không đối chiếu được tổng số; vòng phân trang học kích thước trang thật từ trang đầu |
+
+Ba quyết định chốt thêm trong lúc làm:
+
+1. **F5 so trên số mã hiệu khác nhau, không phải số dòng.** Một chương trình liệt kê trùng mã
+   hiệu chỉ gửi lên Haravan một biến thể, đếm theo dòng sẽ tự chế ra chỗ thiếu.
+2. **D8 và E3 được nối vào màn kiểm tra file.** Hai luật đó cần đúng danh sách CTKM mà giai đoạn
+   này đã có. Gọi API hỏng thì vẫn kiểm tra bình thường, hai luật ghi là bỏ qua.
+3. **Bỏ lượt 2 khi lượt 1 tìm thấy đủ.** Phần giao chắc chắn rỗng nên lượt 2 không đổi được kết
+   luận nào, chỉ tốn thêm 8 giây chờ.
+
+Ngoài ra thêm một cấu hình mới: `shop.timezone_offset_minutes` (mặc định 420). Độ lệch múi giờ
+không được chôn cứng trong mã nguồn.
+
+## Kết quả đo được
+
+Chạy thật lên store dev ngày 2026-08-18, file thử 2 chương trình:
+
+| Mục | Kết quả |
+|---|---|
+| Thời gian một lượt đối soát đủ hai lượt | 8,5 giây (trong đó 8 giây là khoảng chờ cố ý) |
+| F1 với chương trình không tồn tại | Báo đúng |
+| F3 với CTKM khớp thật (`2026-07-22T08:11:00Z` ↔ 15:11 giờ Việt Nam) | **Im lặng** — quy đổi múi giờ đúng |
+| F2 với phần trăm (file ghi `0.1`, Haravan ghi `10`) | **Im lặng** — quy đổi đơn vị đúng |
+| F5 với CTKM đính theo sản phẩm | Tra ra 232 biến thể từ `entitled_product_ids` |
+| Lệnh ghi phát sinh lên Haravan | Không có |
+
+Kiểm thử tự động: 475 test qua hết, trong đó 88 test mới cho lớp đối soát.
 
 ## Đánh giá rủi ro
 
@@ -164,7 +203,10 @@ Bổ sung: khi `status = 'ambiguous'` (trùng tên) thì F1–F5 **không kết 
 
 ## Cân nhắc bảo mật
 
-- Chỉ dùng `GET`; rà soát mã nguồn xác nhận không có `POST`/`PUT`/`DELETE` nào tới Haravan
+- Chỉ dùng `GET`. Đã rà lại mã nguồn: `HaravanClient` chỉ phơi ra đúng một phương thức `get`,
+  lớp đối soát chỉ gọi `client.get`, nên đây là ràng buộc về cấu trúc chứ không phải quy ước.
+  Bước 9 của kế hoạch ban đầu (tạo vài CTKM thử rồi xoá) **đã bỏ**, vì nó mâu thuẫn với chính
+  cam kết chỉ đọc của giai đoạn này. Kiểm thử đầu-cuối chạy trên CTKM sẵn có của store dev.
 - Kết quả đối soát lưu cùng bảng `CheckRun` với `mode = "reconcile"`
 
 ## Bước kế tiếp

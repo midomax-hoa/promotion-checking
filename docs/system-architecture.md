@@ -238,7 +238,7 @@ Phần trăm trong file **luôn là thập phân** (0.5 = 50%); chỉ chỗ đ�
 
 ## Dữ liệu
 
-Bảy bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
+Tám bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
 
 | Bảng | Vai trò |
 |---|---|
@@ -246,16 +246,21 @@ Bảy bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.pr
 | `SyncState` | Một dòng duy nhất: mốc đồng bộ, số liệu thống kê |
 | `CheckRun` / `Finding` | Lịch sử kiểm tra và từng phát hiện |
 | `CheckProgram` | Mỗi chương trình của một lần chạy: số dòng và số phát hiện từng mức |
+| `ReconcileMatch` | Đối soát: chụp lại hai phía của một cặp (chương trình trong file, CTKM trên Haravan) |
 | `RuleConfig` | 37 luật, bật/tắt và ngưỡng riêng |
 | `AppSetting` | Ngưỡng dùng chung toàn ứng dụng |
 
 `CheckProgram` lưu cả chương trình **không có phát hiện nào**. Đó là lý do nó tồn tại: chương trình sạch không để lại dấu vết trong `Finding`, nên nếu không lưu thì màn kết quả vừa không hiện được số dòng của chương trình, vừa không nói được câu "chương trình này không có vấn đề gì".
 
+`ReconcileMatch` chụp lại giá trị chứ không tham chiếu. Vài tháng sau CTKM trên Haravan có thể đã bị sửa và file gốc đã bị dọn, mà báo cáo vẫn phải nói được lúc đối chiếu hai bên trông ra sao. Tên chương trình trùng nhau thì ghi một dòng cho mỗi ứng viên, để màn hình liệt kê hết thay vì tự chọn một cái.
+
+Một lần đối soát cũng là một dòng `CheckRun`, phân biệt bằng cột `mode = "reconcile"`. Nhờ vậy phát hiện của nhóm F dùng chung bảng `Finding` và chung mọi truy vấn sẵn có.
+
 `price` lưu kiểu `Float`. Tiền VND là số nguyên dưới 10⁹ nên `double` biểu diễn chính xác; mọi phép so tiền vẫn dùng ngưỡng sai số `check.money_tolerance_vnd`.
 
 ## Cấu hình
 
-`AppSetting` hiện có 10 khoá. Mọi giá trị đọc qua `getAppConfig()`, kiểm bằng `zod` và có giá trị dự phòng — ô trống hay giá trị vô nghĩa rơi về mặc định chứ không lọt số 0 vào bộ điều tiết nhịp hay bộ phân trang.
+`AppSetting` hiện có 11 khoá. Mọi giá trị đọc qua `getAppConfig()`, kiểm bằng `zod` và có giá trị dự phòng — ô trống hay giá trị vô nghĩa rơi về mặc định chứ không lọt số 0 vào bộ điều tiết nhịp hay bộ phân trang.
 
 | Khoá | Mặc định | Ràng buộc | Ý nghĩa |
 |---|---|---|---|
@@ -267,6 +272,7 @@ Bảy bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.pr
 | `haravan.requests_per_second` | 3 | >0…4 | Dưới mức rỉ 4/giây |
 | `haravan.max_attempts` | 4 | 1…10 | Số lượt thử một lời gọi |
 | `reconcile.recheck_delay_ms` | 8000 | 1…120000 | Chờ giữa hai lần kiểm chống trễ chỉ mục |
+| `shop.timezone_offset_minutes` | 420 | −720…840 | Lệch múi giờ cửa hàng so với UTC, dùng khi so mốc thời gian với Haravan |
 | `report.max_rows_per_page` | 100 | 1…1000 | Phân trang bảng kết quả |
 | `check.money_tolerance_vnd` | 0.5 | >0…1000 | Ngưỡng sai số khi so tiền |
 
@@ -386,3 +392,7 @@ File mất (bị dọn theo hạn lưu, hoặc chưa từng ghi được) **khô
 - `scripts/prune-uploads.sh` thuộc giai đoạn 08, chưa viết — hiện chưa có gì dọn thư mục `.uploads/`.
 - Các lần chạy tạo trước migration `add_check_program` không có dòng `CheckProgram` nào, nên bảng chương trình của chúng hiện trống.
 - Trang lịch sử hiện 100 lần chạy gần nhất, chưa có phân trang. Đủ dùng ở nhịp hiện tại, sẽ phải xem lại nếu chuyển sang kiểm tra hằng ngày nhiều file.
+- `GET /com/promotions.json` **không lọc được phía máy chủ** — mọi tham số lọc bị bỏ qua im lặng. Đối soát vì vậy luôn kéo toàn bộ CTKM của cửa hàng rồi lọc trong bộ nhớ. Cửa hàng tích luỹ nhiều năm sẽ phải xem lại điểm này.
+- Chưa xác định được `limit` của `promotions.json` có bị ép về 50 hay không — store dev chỉ có 1 CTKM. Vòng phân trang học kích thước trang thật từ trang đầu nên đúng với cả hai khả năng, đổi lại tốn thêm đúng một lượt gọi khi trang đầu ngắn.
+- Luật F5 cần cache danh mục để quy đổi CTKM đính theo sản phẩm thành số biến thể. Cache chưa đồng bộ thì luật này im lặng chứ không kết luận.
+- Màn đối soát hiện tất cả chương trình trên một trang, chưa phân trang. File mẫu 154 chương trình vẫn đọc được, file lớn hơn nhiều thì phải xem lại.

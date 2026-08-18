@@ -2,6 +2,74 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 06: Màn đối soát sau import (nhóm F)
+
+### Thêm mới
+
+**Tầng Haravan** (`src/lib/haravan/`)
+
+- `promotion-types.ts` — hình dạng phản hồi CTKM, viết từ gọi thật chứ không từ tài liệu
+- `promotion-fetcher.ts` — phân trang `GET /com/promotions.json`, học kích thước trang thật từ trang đầu
+- `run-promotion-fetch.ts` — nối client thật với cấu hình; gọi hỏng thì trả `null`, không ném lỗi
+
+**Tầng đối soát** (`src/lib/reconcile/`)
+
+- `shop-time.ts` — quy đổi mốc thời gian UTC của Haravan về giờ cửa hàng, so tới phút
+- `promotion-mapper.ts` — ánh xạ CTKM thô, quy đổi cả biến thể lẫn sản phẩm về số biến thể
+- `program-expectation.ts` — đọc kỳ vọng của một chương trình từ file, quy về đơn vị Haravan
+- `promotion-matcher.ts` — khớp theo tên, trả về đủ 4 trạng thái
+- `reconcile-engine.ts` — cơ chế hai lượt, chỉ báo phần giao
+- `run-reconcile.ts` — đầu mối toàn luồng: đọc file → kéo hai lượt → chạy luật → ghi CSDL
+- `match-diff.ts`, `reconcile-match-rows.ts`, `reconcile-queries.ts` — dựng và đọc lại bảng so
+- `group-f-reconcile/` — 6 luật F1–F6
+
+**Màn hình & tuyến API**
+
+- `src/app/doi-soat/page.tsx` — chọn lần kiểm tra trước hoặc tải lại file
+- `src/app/doi-soat/[runId]/page.tsx` — kết quả một lần đối soát, mở lại được bất cứ lúc nào
+- `src/app/api/reconcile/route.ts` — chạy đối soát, phát tiến trình dạng NDJSON
+- `src/components/reconcile/` — `diff-table.tsx`, `match-status-badge.tsx`, `reconcile-runner.tsx`
+
+**Kiểm thử** — thêm 88 test trong `test/reconcile/` và `test/haravan/promotion-fetcher.test.ts`; tổng dự án 475 test
+
+### Thay đổi
+
+- `src/lib/rules/run-check.ts` — màn kiểm tra file nay kéo danh sách CTKM về, nhờ vậy **luật D8 và E3 chạy được với dữ liệu thật**. Gọi API hỏng thì việc kiểm tra vẫn chạy, hai luật đó ghi là bỏ qua chứ không kết luận "không có gì trùng"
+- `src/lib/catalog/catalog-index.ts` — thêm ba bảng tra: theo id biến thể, theo id sản phẩm, và số biến thể của từng sản phẩm. Luật F5 cần chúng để quy đổi CTKM đính theo sản phẩm
+- `src/lib/check/check-run-store.ts` — ghi thêm bảng `ReconcileMatch` trong cùng giao dịch
+- `src/lib/ndjson-stream.ts` — tách hàm đọc NDJSON ra dùng chung cho cả màn đồng bộ lẫn màn đối soát
+- Thêm cấu hình `shop.timezone_offset_minutes` (mặc định 420) và ngưỡng `percentTolerance` của luật F2
+
+### Thay đổi lược đồ dữ liệu
+
+- `20260818035457_add_reconcile_match` — bảng `ReconcileMatch`, mỗi dòng chụp lại một cặp (chương trình, CTKM trên Haravan). Chụp lại chứ không tham chiếu, vì vài tháng sau CTKM có thể đã bị sửa và file gốc đã bị dọn, mà báo cáo vẫn phải nói được lúc đối chiếu hai bên trông ra sao. Tên trùng thì ghi một dòng cho mỗi ứng viên, để màn hình liệt kê hết thay vì tự chọn
+- `20260818040856_add_reconcile_match_sku_count` — thêm cột `excelSkuCount`. Luật F5 so trên **số mã hiệu khác nhau**, không phải số dòng: một chương trình liệt kê trùng mã hiệu chỉ gửi lên Haravan một biến thể
+
+### Bốn chỗ tài liệu Haravan sai hoặc thiếu
+
+Kiểm chứng bằng gọi thật ngày 2026-08-18, chi tiết ở [báo cáo kiểm chứng](../plans/reports/verification-260818-1046-haravan-promotions-api.md):
+
+| Kỳ vọng | Thực tế |
+|---|---|
+| `GET /promotions.json` | Trả **404**; đường dẫn đúng là `/com/promotions.json` |
+| `GET /com/promotions/count.json` | Trả **422** — không có endpoint đếm, khác với `products/count.json` |
+| Lọc phía máy chủ | **Bị bỏ qua**: `?status=disabled` vẫn trả CTKM đang bật; tham số lạ cũng bị nuốt im lặng |
+| `entitled_variant_ids` | CTKM thật để **rỗng**, dùng `entitled_product_ids` (18 sản phẩm) |
+
+Chỗ thứ tư là chỗ nguy hiểm nhất: cứ đếm `entitled_variant_ids` thì luật F5 sẽ báo "file có 18 mã hiệu, Haravan nhận 0" cho một lần import hoàn toàn đúng.
+
+### Đo trên store dev
+
+| Mục | Kết quả |
+|---|---|
+| Một lượt đối soát đủ hai lượt | 8,5 giây (8 giây trong đó là khoảng chờ cố ý) |
+| F3 với ca `2026-07-22T08:11:00Z` ↔ 15:11 giờ Việt Nam | Im lặng — quy đổi múi giờ đúng |
+| F2 với ca file ghi `0.1`, Haravan ghi `10` | Im lặng — quy đổi đơn vị đúng |
+| F5 với CTKM đính theo sản phẩm | Tra ra 232 biến thể từ `entitled_product_ids` |
+| Lệnh ghi phát sinh lên Haravan | Không có |
+
+Bước "tạo vài CTKM thử rồi xoá" trong kế hoạch ban đầu **đã bỏ**: nó mâu thuẫn với chính cam kết chỉ đọc của giai đoạn này. Kiểm thử đầu-cuối chạy trên CTKM sẵn có của store dev.
+
 ## 2026-08-18 — Giai đoạn 05: Màn kiểm tra file & xuất báo cáo
 
 ### Thêm mới

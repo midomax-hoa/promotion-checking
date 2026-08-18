@@ -37,7 +37,7 @@ Web nội bộ giúp người phụ trách biết file Excel khuyến mãi đún
 | 03 | [Đọc & chuẩn hoá file Excel](phase-03-doc-va-chuan-hoa-file-excel.md) | 01 | ✅ Xong 2026-08-18 |
 | 04 | [Bộ máy luật (nhóm A–E)](phase-04-bo-may-luat-nhom-a-den-e.md) | 02, 03 | ✅ Xong 2026-08-18 |
 | 05 | [Màn kiểm tra file & xuất báo cáo](phase-05-man-kiem-tra-file-va-xuat-bao-cao.md) | 04 | ✅ Xong 2026-08-18 |
-| 06 | [Màn đối soát sau import (nhóm F)](phase-06-man-doi-soat-sau-import.md) | 04 | ⬜ Chưa làm |
+| 06 | [Màn đối soát sau import (nhóm F)](phase-06-man-doi-soat-sau-import.md) | 04 | ✅ Xong 2026-08-18 |
 | 07 | [Màn cấu hình luật & tài liệu](phase-07-man-cau-hinh-luat-va-tai-lieu.md) | 01 | ⬜ Chưa làm |
 | 08 | [Triển khai bằng Docker Compose](phase-08-trien-khai-bang-docker-compose.md) | 05 | ⬜ Chưa làm |
 
@@ -60,8 +60,8 @@ Giai đoạn 08 chỉ cần 05 là chạy được, không phải chờ 06/07. `
 - Nạp `promotion.t8.xlsx` → phát hiện đúng **279 dòng giảm 0đ** của `2608GST0K`, báo rõ chương trình này sẽ bị Haravan từ chối
 - Liệt kê đầy đủ SKU không tồn tại trên Haravan kèm gợi ý SKU gần giống
 - Kiểm tra một file **dưới 5 giây** khi cache danh mục đã sẵn sàng
-- Đối soát sau import không báo oan do trễ chỉ mục
-- Không phát sinh bất kỳ lệnh ghi nào lên Haravan
+- Đối soát sau import không báo oan do trễ chỉ mục — ✅ cơ chế hai lượt, có test giả lập trễ chỉ mục
+- Không phát sinh bất kỳ lệnh ghi nào lên Haravan — ✅ `HaravanClient` chỉ phơi ra phương thức `get`
 
 ## Việc cần hỏi trước khi làm
 
