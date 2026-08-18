@@ -47,10 +47,16 @@ describe('hashFile', () => {
 
 /**
  * exceljs writes `xl/workbook.xml` as the LAST zip entry, which its own
- * streaming reader cannot handle (workbook-reader.js:303 dereferences an
- * undefined `this.model`). Every workbook built in these tests therefore
- * exercises the buffered fallback - this test pins that behaviour down so a
- * future exceljs upgrade that fixes the bug shows up here rather than silently.
+ * streaming reader usually cannot handle (workbook-reader.js:303 dereferences
+ * an undefined `this.model`).
+ *
+ * "Usually", not "always": measured on 2026-08-18 with exceljs 4.4.0, sixty
+ * sequential reads of the same buffer threw 59 times, while sixty concurrent
+ * reads threw none - how much of the stream lands per tick decides whether
+ * `workbook.xml` has been parsed by the time a worksheet entry is reached. So
+ * which path `readWorkbook` takes for these files is genuinely a race, and only
+ * its *result* can be asserted. That is what the fallback is there to
+ * guarantee, and what this test pins down.
  */
 describe('readWorkbook - exceljs-written files', () => {
   async function exceljsWorkbook(): Promise<Uint8Array> {
@@ -61,8 +67,16 @@ describe('readWorkbook - exceljs-written files', () => {
     return new Uint8Array(await workbook.xlsx.writeBuffer())
   }
 
-  it('trips the streaming reader', async () => {
-    await expect(readStreaming(await exceljsWorkbook())).rejects.toThrow()
+  it('is read the same way whichever path wins the race', async () => {
+    const bytes = await exceljsWorkbook()
+    // Whether streaming throws here or not, the fallback covers it.
+    const streamed = await readStreaming(bytes).catch(() => null)
+    if (streamed !== null) {
+      expect(streamed[0].dataRows).toEqual([{ rowNumber: 2, cells: ['A1', 'Đồng giá', 'CT1'] }])
+    }
+    expect((await readWorkbook(bytes, 'built.xlsx')).sheets[0].dataRows).toEqual([
+      { rowNumber: 2, cells: ['A1', 'Đồng giá', 'CT1'] },
+    ])
   })
 
   it('is read anyway, through the fallback', async () => {
