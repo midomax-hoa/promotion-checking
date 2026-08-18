@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 
 /** Screens are added phase by phase; only the ones that exist are linked. */
 const NAV_ITEMS = [
-  { href: '/', label: 'Trang chủ' },
+  { href: '/', label: 'Kiểm tra file' },
+  { href: '/lich-su', label: 'Lịch sử kiểm tra' },
   { href: '/dong-bo', label: 'Đồng bộ danh mục' },
 ]
 
