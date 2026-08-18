@@ -109,7 +109,7 @@ export default async function ReconcileResultPage({
       {findings.items.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Chỗ lệch phát hiện được</h2>
-          <div className="rounded-lg border px-4">
+          <div className="overflow-x-auto rounded-lg border px-4">
             <FindingList findings={findings.items} showProgram />
           </div>
           {findings.total > findings.items.length ? (

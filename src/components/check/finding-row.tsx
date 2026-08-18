@@ -4,6 +4,11 @@
  *
  * The suggestion is part of the finding, not an optional extra: a message that
  * only says what is wrong sends the user back to guessing.
+ *
+ * Wide screens get two columns rather than one long line. Handing a 1600px
+ * screen to a single paragraph produces lines nobody can track back to the
+ * start; pinning the metadata to a fixed left column instead spends the width
+ * on making the message land in one line.
  */
 
 import type { FindingRecord } from '@/lib/check/finding-queries'
@@ -27,8 +32,8 @@ export function FindingItem({
 }) {
   const location = locationLabel(finding)
   return (
-    <li className="flex flex-col gap-1 border-b py-2 last:border-b-0">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+    <li className="grid gap-x-5 gap-y-1 border-b py-1.5 last:border-b-0 lg:grid-cols-[21rem_minmax(0,1fr)]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <SeverityBadge severity={finding.severity} />
         <span className="font-mono font-medium text-foreground">{finding.ruleCode}</span>
         {location ? <span>{location}</span> : null}
@@ -37,10 +42,12 @@ export function FindingItem({
         ) : null}
         {finding.sheetName ? <span className="italic">{finding.sheetName}</span> : null}
       </div>
-      <p className="text-sm">{finding.message}</p>
-      {finding.suggestion ? (
-        <p className="text-sm text-muted-foreground">→ {finding.suggestion}</p>
-      ) : null}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-sm text-pretty">{finding.message}</p>
+        {finding.suggestion ? (
+          <p className="text-sm text-pretty text-muted-foreground">→ {finding.suggestion}</p>
+        ) : null}
+      </div>
     </li>
   )
 }

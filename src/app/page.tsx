@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { CatalogFreshnessAlert } from '@/components/check/catalog-freshness-alert'
+import { RecentRuns } from '@/components/check/recent-runs'
 import { UploadPanel } from '@/components/check/upload-panel'
 import { PageShell } from '@/components/shell/page-shell'
 
@@ -22,14 +22,7 @@ export default function HomePage() {
     >
       <CatalogFreshnessAlert />
       <UploadPanel />
-
-      <p className="text-sm text-muted-foreground">
-        Xem lại các lần đã kiểm tra tại{' '}
-        <Link href="/lich-su" className="underline">
-          lịch sử kiểm tra
-        </Link>
-        .
-      </p>
+      <RecentRuns />
     </PageShell>
   )
 }

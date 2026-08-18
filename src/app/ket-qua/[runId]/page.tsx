@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Download } from 'lucide-react'
 import { CatalogSnapshotNote } from '@/components/check/catalog-freshness-alert'
 import { FindingFilters } from '@/components/check/finding-filters'
 import { FindingTable } from '@/components/check/finding-table'
@@ -7,6 +8,7 @@ import { FindingList } from '@/components/check/finding-row'
 import { ProgramTable } from '@/components/check/program-table'
 import { SummaryCards } from '@/components/check/summary-cards'
 import { PageShell } from '@/components/shell/page-shell'
+import { buttonVariants } from '@/components/ui/button'
 import { parseFindingFilter, type SearchParamsInput } from '@/lib/check/finding-filter'
 import {
   loadCheckRun,
@@ -56,7 +58,7 @@ export default async function CheckResultPage({
       width="full"
       actions={
         <>
-          <Link href="/" className="text-sm underline">
+          <Link href="/" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
             ← Kiểm tra file khác
           </Link>
           <ExportButton runId={runId} available={run.storedFileName !== null} />
@@ -69,7 +71,7 @@ export default async function CheckResultPage({
       {fileLevel.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Vấn đề chung của file</h2>
-          <div className="rounded-lg border px-4">
+          <div className="overflow-x-auto rounded-lg border px-4">
             <FindingList findings={fileLevel} />
           </div>
         </section>
@@ -102,10 +104,8 @@ function ExportButton({ runId, available }: { runId: string; available: boolean 
     )
   }
   return (
-    <a
-      href={`/api/check/${runId}/export`}
-      className="rounded-md border border-foreground bg-foreground px-3 py-1 text-sm font-medium text-background"
-    >
+    <a href={`/api/check/${runId}/export`} className={buttonVariants({ size: 'lg' })}>
+      <Download aria-hidden />
       Xuất Excel
     </a>
   )

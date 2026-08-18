@@ -37,8 +37,9 @@ function CarriedFilters({
   )
 }
 
-const PILL = 'rounded-md border px-3 py-1 text-sm whitespace-nowrap hover:bg-muted'
-const PILL_ACTIVE = 'border-foreground bg-foreground text-background hover:bg-foreground'
+const PILL =
+  'rounded-md border px-3 py-1 text-sm whitespace-nowrap transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+const PILL_ACTIVE = 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
 
 export function FindingFilters({
   basePath,
@@ -76,7 +77,7 @@ export function FindingFilters({
         <select
           name="luat"
           defaultValue={filter.ruleCode ?? ''}
-          className="h-8 rounded-md border bg-background px-2 text-sm"
+          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
           aria-label="Lọc theo mã luật"
         >
           <option value="">Mọi mã luật</option>
@@ -91,7 +92,7 @@ export function FindingFilters({
           name="sku"
           defaultValue={filter.sku ?? ''}
           placeholder="Tìm SKU"
-          className="h-8 w-32 rounded-md border bg-background px-2 text-sm"
+          className="h-8 w-32 rounded-md border border-input bg-background px-2 text-sm"
           aria-label="Tìm theo mã hiệu"
         />
         <input
@@ -99,7 +100,7 @@ export function FindingFilters({
           name="ctkm"
           defaultValue={filter.program ?? ''}
           placeholder="Tìm chương trình"
-          className="h-8 w-40 rounded-md border bg-background px-2 text-sm"
+          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm"
           aria-label="Tìm theo tên chương trình"
         />
         <button type="submit" className={PILL}>

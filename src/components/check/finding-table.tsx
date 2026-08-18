@@ -10,10 +10,11 @@ import Link from 'next/link'
 import { filterHref, type FindingFilter } from '@/lib/check/finding-filter'
 import type { FindingPage } from '@/lib/check/finding-queries'
 import { FindingList } from './finding-row'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const NUMBER = new Intl.NumberFormat('vi-VN')
-const PAGE_LINK = 'rounded-md border px-3 py-1 text-sm hover:bg-muted'
+const PAGE_LINK = buttonVariants({ variant: 'outline', size: 'sm' })
 
 export function FindingTable({
   basePath,
@@ -35,12 +36,12 @@ export function FindingTable({
           : `Hiện ${NUMBER.format(first)}–${NUMBER.format(last)} trong ${NUMBER.format(page.total)} phát hiện.`}
       </p>
 
-      <div className="rounded-lg border px-4">
+      <div className="overflow-x-auto rounded-lg border px-4">
         <FindingList findings={page.items} showProgram />
       </div>
 
       {page.pageCount > 1 ? (
-        <nav className="flex items-center gap-2" aria-label="Phân trang">
+        <nav className="flex items-center gap-3" aria-label="Phân trang">
           <PageLink
             basePath={basePath}
             filter={filter}

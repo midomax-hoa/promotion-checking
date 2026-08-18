@@ -8,6 +8,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { FileSpreadsheet, Loader2, UploadCloud } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { MAX_UPLOAD_MB } from '@/lib/excel/upload-limits'
@@ -18,6 +19,11 @@ const ACCEPTED = '.xlsx,.xls'
 export function UploadPanel() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  // dragenter/dragleave also fire when the pointer crosses a *child* of the
+  // drop zone, so a plain boolean flickers off the moment the cursor reaches
+  // the button in the middle. Counting entries and leaves is what makes the
+  // highlight hold steady across the whole zone.
+  const dragDepth = useRef(0)
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,9 +51,14 @@ export function UploadPanel() {
     }
   }
 
+  function resetDrag() {
+    dragDepth.current = 0
+    setDragging(false)
+  }
+
   function onDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault()
-    setDragging(false)
+    resetDrag()
     if (busy) return
     const file = event.dataTransfer.files[0]
     if (file) void upload(file)
@@ -56,21 +67,45 @@ export function UploadPanel() {
   return (
     <div className="flex flex-col gap-3">
       <div
-        onDragOver={(event) => {
+        onDragEnter={(event) => {
           event.preventDefault()
-          setDragging(true)
+          dragDepth.current += 1
+          if (!busy) setDragging(true)
         }}
-        onDragLeave={() => setDragging(false)}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={() => {
+          dragDepth.current -= 1
+          if (dragDepth.current <= 0) resetDrag()
+        }}
         onDrop={onDrop}
         className={cn(
-          'flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-10 text-center transition-colors',
-          dragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/30',
-          busy && 'opacity-60',
+          'flex flex-col items-center gap-3 rounded-xl border-2 border-dashed p-10 text-center transition-colors',
+          dragging
+            ? 'border-primary bg-primary/10 ring-4 ring-primary/15'
+            : 'border-border bg-muted/30 hover:border-muted-foreground/40',
+          busy && 'pointer-events-none opacity-70',
         )}
       >
-        <p className="text-sm text-muted-foreground">
-          Kéo thả file <span className="font-mono">.xlsx</span> vào đây, hoặc bấm để chọn
+        {busy ? (
+          <Loader2 aria-hidden className="size-8 animate-spin text-primary" />
+        ) : dragging ? (
+          <FileSpreadsheet aria-hidden className="size-8 text-primary" />
+        ) : (
+          <UploadCloud aria-hidden className="size-8 text-muted-foreground" />
+        )}
+
+        <p
+          // aria-live so the state change is announced, not only painted.
+          aria-live="polite"
+          className={cn('text-sm', dragging ? 'font-medium text-primary' : 'text-muted-foreground')}
+        >
+          {busy
+            ? 'Đang đọc file và chạy luật kiểm tra...'
+            : dragging
+              ? 'Thả file ra để bắt đầu kiểm tra'
+              : 'Kéo thả file .xlsx vào đây, hoặc bấm để chọn'}
         </p>
+
         <Button type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
           {busy ? 'Đang kiểm tra...' : 'Chọn file'}
         </Button>
@@ -87,7 +122,8 @@ export function UploadPanel() {
           }}
         />
         <p className="text-xs text-muted-foreground">
-          Tối đa {MAX_UPLOAD_MB} MB. File được giữ lại trên máy chủ để xuất báo cáo, không gửi đi đâu khác.
+          Tối đa {MAX_UPLOAD_MB} MB. File được giữ lại trên máy chủ để xuất báo cáo, không gửi đi
+          đâu khác.
         </p>
       </div>
 

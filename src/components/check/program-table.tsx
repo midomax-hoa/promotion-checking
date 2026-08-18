@@ -11,7 +11,9 @@
  */
 
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import { filterHref, type FindingFilter } from '@/lib/check/finding-filter'
+import { cn } from '@/lib/utils'
 import { loadProgramFindings, type ProgramSummary } from '@/lib/check/finding-queries'
 import { FindingList } from './finding-row'
 import { SeverityCount } from './severity-badge'
@@ -69,17 +71,27 @@ export function ProgramTable({
               href={href}
               scroll={false}
               aria-expanded={expanded}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm hover:bg-muted/50"
+              className={cn(
+                'flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-sm hover:bg-muted/50',
+                // A clean program is not news. Fading it is what lets a screen
+                // of 154 programs read as "these six need me" at a glance.
+                total === 0 && 'text-muted-foreground',
+              )}
             >
               <span aria-hidden className="w-3 text-muted-foreground">
                 {expanded ? '▾' : '▸'}
               </span>
-              <span className="min-w-40 flex-1 font-medium">{program.name}</span>
+              <span className={cn('min-w-40 flex-1', total > 0 && 'font-medium')}>
+                {program.name}
+              </span>
               <span className="tabular-nums text-muted-foreground">
                 {NUMBER.format(program.rowCount)} dòng
               </span>
               {total === 0 ? (
-                <span className="text-emerald-700 dark:text-emerald-400">✓ không có vấn đề</span>
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <Check aria-hidden className="size-3.5 text-emerald-700 dark:text-emerald-400" />
+                  không có vấn đề
+                </span>
               ) : (
                 <span className="flex items-center gap-1">
                   <SeverityCount severity="critical" count={program.countCritical} />
