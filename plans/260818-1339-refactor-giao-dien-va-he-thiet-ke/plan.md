@@ -1,6 +1,6 @@
 ---
 title: Refactor giao diện và dựng hệ thiết kế
-status: planned
+status: done
 created: 2026-08-18
 mode: normal
 scope: ui
@@ -49,12 +49,38 @@ Công cụ đã chạy đúng và đủ chức năng qua 8 giai đoạn, nhưng 
 
 | # | Giai đoạn | Phụ thuộc | Trạng thái |
 |---|---|---|---|
-| 01 | [Hệ thiết kế và dark mode](phase-01-he-thiet-ke-va-dark-mode.md) | — | ⬜ Chưa làm |
-| 02 | [Khung ứng dụng và sidebar](phase-02-khung-ung-dung-va-sidebar.md) | 01 | ⬜ Chưa làm |
-| 03 | [Luồng chính: kiểm tra file và kết quả](phase-03-luong-chinh-kiem-tra-va-ket-qua.md) | 02 | ⬜ Chưa làm |
-| 04 | [Các màn còn lại](phase-04-cac-man-con-lai.md) | 02 | ⬜ Chưa làm |
+| 01 | [Hệ thiết kế và dark mode](phase-01-he-thiet-ke-va-dark-mode.md) | — | ✅ Xong 2026-08-18 |
+| 02 | [Khung ứng dụng và sidebar](phase-02-khung-ung-dung-va-sidebar.md) | 01 | ✅ Xong 2026-08-18 |
+| 03 | [Luồng chính: kiểm tra file và kết quả](phase-03-luong-chinh-kiem-tra-va-ket-qua.md) | 02 | ✅ Xong 2026-08-18 |
+| 04 | [Các màn còn lại](phase-04-cac-man-con-lai.md) | 02 | ✅ Xong 2026-08-18 |
 
-Giai đoạn 03 và 04 độc lập với nhau, làm song song được.
+Giai đoạn 03 và 04 độc lập với nhau, làm song song được. Thực tế làm tuần tự, mỗi giai đoạn một commit riêng.
+
+## Sai lệch giữa kế hoạch và mã nguồn thật
+
+Ba chỗ kế hoạch mô tả không khớp với mã nguồn khi bắt tay vào làm. Ghi lại để lần sau đọc kế hoạch không bị dẫn sai.
+
+| Kế hoạch viết | Thực tế trong mã | Đã xử lý |
+|---|---|---|
+| "Ô thả file chưa có trạng thái đang kéo qua" | `upload-panel.tsx` đã có state `dragging` từ trước, nhưng tô bằng `border-primary` — mà `--primary` hồi đó là xám gần đen nên nhìn không ra. Ngoài ra `onDragLeave` kích hoạt cả khi con trỏ đi qua phần tử con nên highlight bị nháy | Giữ state cũ, đổi sang đếm số lần vào/ra, và thêm trạng thái đang xử lý |
+| Màn cấu hình có "**một** thẻ `<form>` bọc cả 11 thiết lập và 37 luật" | Có **hai** thẻ `<form>`: một của `AppSettingForm`, một của `RuleConfigTable`, hai nút Lưu riêng | Giữ nguyên đúng hai biểu mẫu. Điều cần bảo toàn là 37 luật nằm chung **một** biểu mẫu — đã kiểm chứng bằng DOM |
+| Giai đoạn 03 dặn không đụng `finding-filters.tsx` | Viên lọc đang chọn dùng `bg-foreground` (đen tuyền), sót lại từ bảng màu xám | Chỉ đổi màu, không đụng href, tên tham số hay thẻ `<form>`. Đã bấm thử lại toàn bộ bộ lọc sau khi sửa |
+
+## Đã kiểm chứng bằng chạy thật
+
+- Tương phản WCAG AA: đo bằng script chuyển `oklch()` sang sRGB rồi tính tỷ lệ tương phản, phủ toàn bộ token và cả bốn màu mức cảnh báo ở hai chế độ — đạt hết
+- Ba trạng thái chủ đề: đổi chủ đề hệ điều hành khi đang ở chế độ "theo hệ thống" thì giao diện đổi theo, không cần tải lại; ép sáng/tối thì hệ điều hành không ghi đè được nữa
+- `?muc=critical` trên màn kết quả trả đúng **279** phát hiện của `2608GST0K`, chương trình này vẫn đứng đầu bảng
+- Xuất Excel trả về workbook thật (200, 359 KB)
+- Màn cấu hình: nhập sai vẫn báo "Phải là một con số." bằng tiếng Việt; lưu thật rồi tải lại thấy giá trị mới; đã trả lại giá trị ban đầu
+- Biểu mẫu luật: tắt E1 → "Đã lưu 1 luật." → tải lại vẫn tắt → bật lại như cũ
+- Đối soát chạy thật, tiến trình đi qua đủ ba giai đoạn rồi ra màn kết quả
+- Thứ tự `Tab`: liên kết "Nhảy tới nội dung" đứng trước, rồi mới tới 5 mục sidebar, mỗi mục đều thấy rõ viền focus
+- Sidebar cố định ở 1920px và 1366px, thu về ngăn kéo ở 1023px trở xuống; thân trang không bao giờ cuộn ngang
+
+## Việc còn treo
+
+- **Test đọc file Excel thật chập chờn.** `excel-reader.test.ts` và `promotion-workbook.test.ts` có lúc vượt `testTimeout` mặc định 5.000 ms khi chạy song song. **Có sẵn từ trước đợt này** — đã kiểm chứng bằng cách stash toàn bộ thay đổi rồi chạy lại trên cây mã sạch, vẫn rớt y hệt. Chạy `npx vitest run --testTimeout=30000` thì 495/495 xanh. Sửa nó là việc của một đợt khác vì đợt này chỉ đụng giao diện
 
 ## Định nghĩa hoàn thành
 

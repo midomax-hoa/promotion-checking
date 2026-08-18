@@ -2,6 +2,43 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 09: Refactor giao diện và hệ thiết kế
+
+Đợt này chỉ đụng giao diện. Không sửa luật, không sửa truy vấn, không đổi lược đồ; 495 test giữ nguyên và vẫn xanh.
+
+### Thêm mới
+
+**Hệ thiết kế**
+
+- `src/lib/theme.ts`, `src/components/theme/` — ba trạng thái chủ đề: theo hệ thống, ép sáng, ép tối. Script đặt lớp `dark` chạy đồng bộ trong `<head>` nên chế độ tối không loé trắng lúc tải
+- Bảng màu chuyển từ xám hoàn toàn sang xanh dương làm màu thương hiệu. Xanh dương là tông duy nhất còn trống — đỏ/cam/vàng/lục đã mang nghĩa mức cảnh báo, dùng chúng cho nút bấm sẽ bị đọc nhầm thành kết luận
+- Mọi cặp chữ/nền, gồm cả bốn màu mức cảnh báo, đã đo đạt WCAG AA ở cả hai chế độ
+
+**Khung ứng dụng**
+
+- `src/components/shell/` — `PageShell` (tiêu đề, mô tả, vùng thao tác, ba mức bề rộng), `AppSidebar`, `nav-items.ts`
+- Sidebar trái thay thanh điều hướng ngang; mục đang mở so khớp theo tiền tố nên đứng ở `/ket-qua/<id>` thì **Kiểm tra file** vẫn sáng. Dưới 1024px thu về ngăn kéo
+- Liên kết "Nhảy tới nội dung" đứng trước sidebar trong thứ tự `Tab`
+
+**Màn hình**
+
+- `src/components/check/recent-runs.tsx` — 5 lần kiểm gần nhất ngay trang chủ, dùng lại truy vấn lịch sử đã có
+- `src/components/config/rule-group-jump.tsx` — mục lục sáu nhóm luật, đặt **ngoài** thẻ `<form>` để không đụng cách gửi
+
+### Thay đổi
+
+- Bảy trang bỏ khung tự dựng (`mx-auto flex max-w-4xl flex-col gap-6 p-8` chép ở cả bảy) và chuyển sang `PageShell`. Màn kết quả và màn đối soát chi tiết dùng hết chiều ngang thay vì bị ép trong 896px
+- Danh sách phát hiện chia hai cột trên màn rộng: dữ liệu nhận dạng cố định bên trái, thông báo và gợi ý bên phải. Ở 1920px phần lớn thông báo nằm gọn một dòng
+- Ô thả file đếm số lần `dragenter`/`dragleave` thay vì bật tắt một biến luận lý — cách cũ tắt highlight ngay khi con trỏ đi qua nút ở giữa
+- Bảng đối soát: hai cột giá trị được chia đều, dòng lệch tô nền cả hàng, mỗi khối ghi số mục lệch. Màu vẫn không bao giờ là tín hiệu duy nhất — chữ "lệch" giữ nguyên
+- Chương trình sạch làm nhạt đi để chương trình có lỗi nổi lên
+- `docs/images/man-cau-hinh.png` chụp lại theo giao diện mới
+
+### Ghi chú
+
+- Màn cấu hình vẫn giữ đúng cấu trúc cũ: một biểu mẫu cho 11 thiết lập chung, một biểu mẫu cho toàn bộ 37 luật. Không tách nhỏ thêm, vì tách ra sẽ đẻ ra chuyện lưu nửa vời
+- Tên trường trong biểu mẫu không đổi, nên Server Action đọc y như cũ
+
 ## 2026-08-18 — Giai đoạn 08: Đóng gói Docker Compose
 
 ### Thêm mới

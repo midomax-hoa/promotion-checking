@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Trung bình
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18
 - **Phụ thuộc:** Giai đoạn 02 (khung trang). Độc lập với giai đoạn 03
 - Áp khung mới lên bốn màn còn lại: lịch sử, đối soát, đồng bộ danh mục, cấu hình luật.
 
@@ -62,12 +62,12 @@ src/components/check/program-table.tsx         # dùng lại, không sửa thêm
 
 ## Danh sách việc
 
-- [ ] Bốn màn dùng `PageShell`
-- [ ] Mục lục nhóm luật ở màn cấu hình
-- [ ] Bảng luật tách nhóm rõ, mật độ vừa mắt
-- [ ] Ba cột so sánh ở màn đối soát chi tiết
-- [ ] Màn đồng bộ: trạng thái và tiến trình dễ đọc
-- [ ] Bấm Lưu thật, chạy đối soát thật để xác nhận không hỏng luồng
+- [x] Bốn màn dùng `PageShell`
+- [x] Mục lục nhóm luật ở màn cấu hình
+- [x] Bảng luật tách nhóm rõ, mật độ vừa mắt
+- [x] Ba cột so sánh ở màn đối soát chi tiết
+- [x] Màn đồng bộ: trạng thái và tiến trình dễ đọc
+- [x] Bấm Lưu thật, chạy đối soát thật để xác nhận không hỏng luồng
 
 ## Tiêu chí hoàn thành
 

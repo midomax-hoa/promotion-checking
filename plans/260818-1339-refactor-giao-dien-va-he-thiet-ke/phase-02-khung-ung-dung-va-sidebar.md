@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — giai đoạn 03 và 04 đều dựng trên khung này
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18
 - **Phụ thuộc:** Giai đoạn 01 (token màu)
 - Thay thanh điều hướng ngang bằng sidebar trái, và rút phần khung lặp lại ở 7 trang thành một thành phần dùng chung.
 
@@ -77,12 +77,12 @@ Ba mức này là **token đặt trong `page-shell.tsx`**, không rải số pix
 
 ## Danh sách việc
 
-- [ ] `nav-items.ts` kèm biểu tượng và tiền tố so khớp
-- [ ] `page-shell.tsx` với ba mức bề rộng
-- [ ] `app-sidebar.tsx`, trạng thái đang mở lấy từ đường dẫn
-- [ ] `layout.tsx` dựng lưới, có liên kết nhảy tới nội dung
-- [ ] Chuyển đủ 7 trang sang `PageShell`
-- [ ] Kiểm bàn phím và các mốc bề rộng màn hình
+- [x] `nav-items.ts` kèm biểu tượng và tiền tố so khớp
+- [x] `page-shell.tsx` với ba mức bề rộng
+- [x] `app-sidebar.tsx`, trạng thái đang mở lấy từ đường dẫn
+- [x] `layout.tsx` dựng lưới, có liên kết nhảy tới nội dung
+- [x] Chuyển đủ 7 trang sang `PageShell`
+- [x] Kiểm bàn phím và các mốc bề rộng màn hình
 
 ## Tiêu chí hoàn thành
 

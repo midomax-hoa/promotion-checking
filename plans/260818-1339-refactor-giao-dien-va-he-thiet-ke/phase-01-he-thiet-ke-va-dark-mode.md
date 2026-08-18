@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — mọi giai đoạn sau đều dựa trên token của giai đoạn này
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18
 - **Phụ thuộc:** Không
 - Đặt nền màu, chữ, khoảng cách cho cả ứng dụng, và làm dark mode bật được thật.
 
@@ -92,12 +92,14 @@ Giá trị trên là **điểm khởi đầu**, phải đo tương phản thật
 
 ## Danh sách việc
 
-- [ ] `src/lib/theme.ts`
-- [ ] Script chống nháy, nhúng vào `<head>`
-- [ ] Token màu `:root` và `.dark`
-- [ ] Nút chuyển chủ đề ba trạng thái
-- [ ] Đo tương phản cả hai chế độ, chỉnh chỗ rớt ngưỡng
-- [ ] Chụp đối chiếu 5 màn × 2 chế độ
+- [x] `src/lib/theme.ts`
+- [x] Script chống nháy, nhúng vào `<head>`
+- [x] Token màu `:root` và `.dark`
+- [x] Nút chuyển chủ đề ba trạng thái
+- [x] Đo tương phản cả hai chế độ, chỉnh chỗ rớt ngưỡng
+- [x] Chụp đối chiếu — làm khác cách mô tả: tương phản đo bằng script cho **toàn bộ** token và bốn màu
+  mức cảnh báo ở hai chế độ (bằng chứng chắc hơn nhìn mắt), còn ảnh chụp phủ màn kết quả, trang chủ,
+  đối soát chi tiết, cấu hình và lịch sử; riêng màn kết quả và đối soát chi tiết chụp ở cả hai chế độ
 
 ## Tiêu chí hoàn thành
 

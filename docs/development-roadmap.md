@@ -14,8 +14,9 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ✅ Xong 2026-08-18 |
 | 07 | Màn cấu hình luật & tài liệu | 01 | ✅ Xong 2026-08-18 |
 | 08 | Triển khai bằng Docker Compose | 05 | 🟡 Đóng gói xong 2026-08-18 — chờ máy chủ để triển khai thật |
+| 09 | Refactor giao diện & hệ thiết kế | 05, 06, 07 | ✅ Xong 2026-08-18 |
 
-Giai đoạn 03 và 02 chạy độc lập với nhau. Giai đoạn 08 chỉ cần 05 là chạy được.
+Giai đoạn 03 và 02 chạy độc lập với nhau. Giai đoạn 08 chỉ cần 05 là chạy được. Giai đoạn 09 chỉ đụng giao diện, không chặn 08.
 
 ## Đã xong
 
@@ -124,6 +125,15 @@ Xác nhận cảnh báo của kế hoạch là thật: `grep` trong image thấy
 
 Chưa làm được vì cần máy chủ và thông tin CSDL thật: chạy `docker compose up` trên máy chủ Linux, kiểm HTTPS bằng tên miền thật, diễn tập nâng cấp, đặt cron.
 
+### Giai đoạn 09 — Refactor giao diện & hệ thiết kế (2026-08-18)
+
+- Bảng màu chuyển từ xám hoàn toàn sang xanh dương làm màu thương hiệu; đo WCAG AA cho mọi cặp chữ/nền ở cả hai chế độ, gồm cả bốn màu mức cảnh báo
+- Dark mode ba trạng thái (theo hệ thống / sáng / tối), chống nháy bằng script chạy đồng bộ trong `<head>`
+- Sidebar trái thay thanh điều hướng ngang; `PageShell` gom khung của bảy trang về một chỗ với ba mức bề rộng
+- Màn kết quả và màn đối soát chi tiết hết bị ép trong 896px; danh sách phát hiện chia hai cột trên màn rộng
+- Trang chủ có khối 5 lần kiểm gần nhất; màn cấu hình có mục lục sáu nhóm luật
+- Không đổi luật, truy vấn hay lược đồ. 495 test xanh; `typecheck`, `lint`, `build` sạch
+
 ## Việc còn treo
 
 | Việc | Vì sao còn treo | Cần làm gì |
@@ -136,6 +146,7 @@ Chưa làm được vì cần máy chủ và thông tin CSDL thật: chạy `doc
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
 | Ảnh chụp cấu hình theo từng lần chạy | Bảng rủi ro của giai đoạn 07 giả định `CheckRun` có lưu, nhưng lược đồ không có cột nào như vậy | Thêm một cột `Json` vào `CheckRun` kèm migration, ghi lại `RuleConfig` lúc chạy. Không có nó thì không giải thích được vì sao hai lần chạy cách nhau một lần chỉnh cấu hình lại ra số khác nhau |
 | Triển khai thật lên máy chủ | Chưa có máy chủ Linux và thông tin CSDL (host, tài khoản, quyền `CREATE TABLE`, bắt buộc SSL hay không) | Xin cấu hình từ bên quản trị CSDL, điền `.env.production`, `npm run docker:up`, kiểm HTTPS qua tên miền thật, diễn tập nâng cấp, đặt cron sao lưu và dọn file |
+| Test đọc file Excel thật chập chờn | `test/excel/excel-reader.test.ts` và `promotion-workbook.test.ts` đọc `promotion.t8.xlsx` (3.929 dòng); dưới tải chạy song song có lúc vượt `testTimeout` mặc định 5.000 ms. Có sẵn từ trước đợt refactor giao diện — kiểm chứng bằng cách chạy lại trên cây mã sạch | Nâng `testTimeout` cho riêng hai file này, hoặc đặt `testTimeout` chung trong `vitest.config`. Chạy `npx vitest run --testTimeout=30000` thì 495/495 xanh |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |
 
 ## Định nghĩa hoàn thành của cả dự án

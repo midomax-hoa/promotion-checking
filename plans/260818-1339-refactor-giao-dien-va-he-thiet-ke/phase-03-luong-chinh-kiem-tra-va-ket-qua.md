@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Cao — đây là hai màn người dùng nhìn nhiều nhất
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18
 - **Phụ thuộc:** Giai đoạn 02 (khung trang)
 - Làm màn tải file và màn kết quả cho ra dáng, tận dụng bề rộng vừa mở ra.
 
@@ -61,13 +61,15 @@ Khối "lần kiểm gần nhất" đọc qua `check-run-history.ts` đã có s�
 
 ## Danh sách việc
 
-- [ ] Hai trang dùng `PageShell`
-- [ ] Khối lần kiểm gần nhất ở trang chủ
-- [ ] Ô thả file có trạng thái kéo qua và đang xử lý
-- [ ] Nâng phần kết luận ở màn kết quả
-- [ ] Bảng phát hiện dùng hết bề rộng
-- [ ] Bảng chương trình phân biệt chương trình sạch
-- [ ] Chạy thật với file mẫu, chụp đối chiếu hai chế độ màu
+- [x] Hai trang dùng `PageShell`
+- [x] Khối lần kiểm gần nhất ở trang chủ
+- [x] Ô thả file có trạng thái kéo qua và đang xử lý
+- [x] Nâng phần kết luận ở màn kết quả
+- [x] Bảng phát hiện dùng hết bề rộng
+- [x] Bảng chương trình phân biệt chương trình sạch
+- [x] Chạy thật với file mẫu — dùng lần chạy `promotion.t8.xlsx` đã có sẵn trong CSDL thay vì nạp lại
+  file mới; kiểm lại đủ 3.931 dòng / 156 chương trình, `?muc=critical` ra đúng 279, xuất Excel trả về
+  workbook thật. Chụp đối chiếu hai chế độ màu
 
 ## Tiêu chí hoàn thành
 

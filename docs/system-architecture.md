@@ -38,10 +38,13 @@ src/
     api/check/          # nhận file tải lên; tuyến con export trả file báo cáo
     api/sync/route.ts   # chạy đồng bộ, phát tiến trình dạng NDJSON
     api/reconcile/      # chạy đối soát, phát tiến trình dạng NDJSON
+  components/shell/     # khung dùng chung: sidebar (client), danh sách màn, PageShell
+  components/theme/     # script chống nháy chạy trong <head> và nút chuyển chủ đề
   components/check/     # thành phần của màn kiểm tra, chỉ upload-panel chạy ở trình duyệt
   components/reconcile/ # bảng so ba cột và bộ chạy đối soát
-  components/config/    # bảng luật, ô nhập ngưỡng, công tắc theo nhóm
+  components/config/    # bảng luật, ô nhập ngưỡng, công tắc theo nhóm, mục lục nhóm
   lib/
+    theme.ts            # khoá localStorage và cách quy đổi lựa chọn chủ đề ra lớp CSS
     haravan/            # tầng gọi API và đồng bộ
     catalog/            # cache danh mục và tra cứu SKU
     excel/              # đọc, chuẩn hoá và xuất file khuyến mãi
