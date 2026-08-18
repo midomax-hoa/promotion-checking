@@ -23,8 +23,11 @@ const NAV_ITEMS = [
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi">
-      <body className={`${sans.variable} ${mono.variable} antialiased`}>
+    // The font variables belong on <html>, not <body>: globals.css applies
+    // `font-sans` to <html>, and a custom property set on the child is
+    // invisible to the parent - the whole page fell back to Times New Roman.
+    <html lang="vi" className={`${sans.variable} ${mono.variable}`}>
+      <body className="antialiased">
         <nav className="border-b">
           <div className="mx-auto flex max-w-4xl gap-4 p-4 text-sm">
             {NAV_ITEMS.map((item) => (
