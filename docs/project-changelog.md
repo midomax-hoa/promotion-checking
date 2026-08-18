@@ -2,6 +2,67 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 08: Đóng gói Docker Compose
+
+### Thêm mới
+
+**Đóng gói**
+
+- `Dockerfile` — năm chặng `deps` → `migrator-deps` → `builder` → `migrator` → `runner`. Chặng `runner` chạy bằng người dùng `nextjs` (uid 1001), image **326 MB**
+- `docker-compose.yml` — `migrate` (chạy một lần) → `app` (chờ `healthcheck`) → `caddy`; profile `tools` cho việc sao lưu. Không có service `postgres`: CSDL nằm ở máy chủ khác
+- `Caddyfile` — cách cấp chứng chỉ TLS chọn bằng biến `CADDY_TLS`, không phải sửa file
+- `.dockerignore` — viết trước lần build đầu; không có nó thì `check-promotion/` (177 MB) bị nhồi vào ngữ cảnh build
+- `.env.production.example`, `docker-compose.override.yml.example`
+
+**Điểm kiểm tra sức khoẻ**
+
+- `src/app/api/health/route.ts` — `SELECT 1` xuống CSDL; trả 503 khi không nối được. Thông báo lỗi giữ trong log vì nó mang theo host và thông tin đăng nhập
+
+**Script vận hành** (`scripts/`)
+
+- `lib-deploy-env.sh` — đọc `.env.production` bằng cách phân tích chứ không `source`; grep neo `^` nên dòng đã chú thích bị bỏ qua. `db_target()` in `host:cổng/tên-csdl` đã lược mật khẩu
+- `backup-db.sh`, `backup-uploads.sh` — chạy `pg_dump`/`tar` qua container `postgres:18-alpine`, máy chủ khỏi cài `psql`
+- `restore-db.sh` — **cố tình không có cờ bỏ qua xác nhận**: nó xoá toàn bộ bảng của dự án, và CSDL nằm trên máy chủ dùng chung
+- `prune-uploads.sh` — dọn file quá hạn theo `UPLOAD_RETENTION_DAYS`, có `--dry-run` và `--days`
+
+### Thay đổi
+
+- `next.config.ts` — thêm `experimental.serverActions`: `bodySizeLimit: '25mb'` và `allowedOrigins` đọc từ `ALLOWED_ORIGINS`. Bắt buộc khi chạy sau reverse proxy
+- `package.json` — thêm bảy script `docker:*`, tất cả đã kèm `--env-file .env.production`
+- `.gitignore` — thêm `*.tar.gz`, `docker-compose.override.yml`
+- `docs/van-hanh-va-trien-khai.md` — thêm mục triển khai Docker, chứng chỉ TLS, sao lưu và phục hồi, bảng phân biệt CSDL máy phát triển với CSDL máy chủ
+
+### Ba chỗ phải sửa sau khi build thật
+
+| Hiện tượng | Xử lý |
+|---|---|
+| Kế hoạch nói Prisma 7 không còn engine nhị phân nên định dùng `npm ci --ignore-scripts` | Đúng với **client**, sai với **CLI**: `prisma migrate deploy` cần `schema-engine-linux-musl-openssl-3.0.x` do `@prisma/engines` tải trong postinstall. Chặng `deps` chép sẵn `prisma/schema.prisma` + `prisma.config.ts` trước `npm ci` để hook chạy trọn |
+| Xoá `node_modules/next` trong chặng `migrator` mà image vẫn 1,51 GB | Layer sau xoá không thu hồi dung lượng layer trước. Tách chặng `migrator-deps` để cắt, rồi `COPY --from` sang — còn 931 MB |
+| `docker compose up` dừng ở `thiếu APP_DOMAIN` dù `.env.production` đã có | `env_file:` chỉ truyền biến vào container; phần `${...}` lấy từ `--env-file`. Đưa cờ này vào toàn bộ script `docker:*` và ghi rõ trong tài liệu |
+
+### Kiểm chứng
+
+Chạy thử toàn phần với một PostgreSQL tạm (container tự tạo, xoá sau khi thử):
+
+| Hạng mục | Kết quả |
+|---|---|
+| Image ứng dụng | 326 MB — dưới ngưỡng 400 MB |
+| Migration + seed | 5 migration áp đúng, seed nạp 37 luật + 11 thiết lập |
+| `/api/health` | `{"status":"ok","database":"up"}` |
+| `/cau-hinh` | 200, 85 KB HTML, mã luật đọc từ CSDL đã seed |
+| `whoami` / `date` | `nextjs` / `+07` |
+| Volume `uploads` | Ghi được bằng người dùng `nextjs` |
+| `docker history` | Không lộ token hay chuỗi kết nối |
+| `docker compose config` | Hợp lệ; **chỉ `caddy`** ánh xạ cổng 80/443 ra ngoài |
+| `caddy validate` | Hợp lệ ở cả hai chế độ TLS, tự bật chuyển hướng HTTP → HTTPS |
+| `allowedOrigins` | `grep` thấy trong `server.js` — xác nhận đổi `APP_DOMAIN` là phải dựng lại image |
+
+Toàn dự án: 495 test pass, `typecheck` và `lint` sạch.
+
+### Chưa làm
+
+Cần máy chủ Linux và thông tin CSDL thật: chạy `docker compose up` trên máy chủ, kiểm HTTPS bằng tên miền thật, chạy hết luồng qua proxy, diễn tập nâng cấp, đặt cron sao lưu và dọn file.
+
 ## 2026-08-18 — Giai đoạn 07: Màn cấu hình luật & tài liệu
 
 ### Thêm mới

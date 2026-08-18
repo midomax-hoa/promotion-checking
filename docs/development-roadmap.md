@@ -13,7 +13,7 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 05 | Màn kiểm tra file & xuất báo cáo | 04 | ✅ Xong 2026-08-18 |
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ✅ Xong 2026-08-18 |
 | 07 | Màn cấu hình luật & tài liệu | 01 | ✅ Xong 2026-08-18 |
-| 08 | Triển khai bằng Docker Compose | 05 | ⬜ Chưa làm |
+| 08 | Triển khai bằng Docker Compose | 05 | 🟡 Đóng gói xong 2026-08-18 — chờ máy chủ để triển khai thật |
 
 Giai đoạn 03 và 02 chạy độc lập với nhau. Giai đoạn 08 chỉ cần 05 là chạy được.
 
@@ -108,6 +108,22 @@ Tài liệu: thêm `codebase-summary.md`, `huong-dan-su-dung.md` (cho người d
 
 Tổng 495 test pass; `typecheck`, `lint`, `build` sạch. Không thêm migration — bảng `RuleConfig` và `AppSetting` đã đủ từ giai đoạn 01.
 
+### Giai đoạn 08 — Đóng gói Docker Compose (2026-08-18)
+
+`Dockerfile` năm chặng (`deps` → `migrator-deps` → `builder` → `migrator` → `runner`), `docker-compose.yml` ba dịch vụ theo thứ tự `migrate` → `app` → `caddy` cộng profile `tools`, `Caddyfile` chọn cách cấp TLS bằng biến `CADDY_TLS`, điểm kiểm tra `/api/health`, bốn script sao lưu / phục hồi / dọn file.
+
+Đo trên máy phát triển (Docker trong WSL): image ứng dụng **326 MB** (ngưỡng 400 MB), image migrator 931 MB sau khi cắt cây phụ thuộc chỉ dùng cho giao diện. Chạy thử toàn phần với một PostgreSQL tạm: 5 migration áp đúng, seed nạp 37 luật + 11 thiết lập, `/api/health` trả `{"status":"ok","database":"up"}`, `/cau-hinh` dựng 85 KB HTML đọc từ CSDL đã seed, `whoami` → `nextjs`, `date` → `+07`. `docker history` không lộ token hay chuỗi kết nối; chỉ `caddy` ánh xạ cổng ra ngoài; Caddy tự bật chuyển hướng HTTP → HTTPS ở cả hai chế độ TLS.
+
+Ba điểm lệch so với kế hoạch, đều do kiểm chứng thực tế:
+
+- **Không dùng được `npm ci --ignore-scripts`.** Client Prisma 7 đúng là không kèm engine, nhưng `prisma migrate deploy` thì có — `@prisma/engines` tải `schema-engine-linux-musl-openssl-3.0.x` (~20 MB) trong postinstall. Chặng `deps` vì vậy chép sẵn `prisma/schema.prisma` và `prisma.config.ts` **trước** `npm ci` để hook `postinstall` chạy trọn.
+- **Thêm chặng `migrator-deps`.** Xoá thư mục ở một layer sau không thu hồi được dung lượng của layer trước, nên phải cắt ở một chặng riêng rồi `COPY` sang. Migrator từ 1,51 GB còn 931 MB.
+- **Mọi lệnh compose phải kèm `--env-file .env.production`.** `env_file:` chỉ truyền biến vào container; phần `${...}` trong compose lấy từ `--env-file`. Các script `docker:*` trong `package.json` đã kèm sẵn.
+
+Xác nhận cảnh báo của kế hoạch là thật: `grep` trong image thấy `allowedOrigins":["promotion.example.com"]` nằm trong `server.js`, tức đổi `APP_DOMAIN` là **phải dựng lại image**.
+
+Chưa làm được vì cần máy chủ và thông tin CSDL thật: chạy `docker compose up` trên máy chủ Linux, kiểm HTTPS bằng tên miền thật, diễn tập nâng cấp, đặt cron.
+
 ## Việc còn treo
 
 | Việc | Vì sao còn treo | Cần làm gì |
@@ -119,6 +135,7 @@ Tổng 495 test pass; `typecheck`, `lint`, `build` sạch. Không thêm migratio
 | Nhóm B chưa đối chiếu danh mục thật | Store dev không có 3.929 mã hiệu của file mẫu | Đồng bộ cửa hàng thật rồi chạy lại, đo số mã hiệu không tra ra và chất lượng gợi ý của B1 |
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
 | Ảnh chụp cấu hình theo từng lần chạy | Bảng rủi ro của giai đoạn 07 giả định `CheckRun` có lưu, nhưng lược đồ không có cột nào như vậy | Thêm một cột `Json` vào `CheckRun` kèm migration, ghi lại `RuleConfig` lúc chạy. Không có nó thì không giải thích được vì sao hai lần chạy cách nhau một lần chỉnh cấu hình lại ra số khác nhau |
+| Triển khai thật lên máy chủ | Chưa có máy chủ Linux và thông tin CSDL (host, tài khoản, quyền `CREATE TABLE`, bắt buộc SSL hay không) | Xin cấu hình từ bên quản trị CSDL, điền `.env.production`, `npm run docker:up`, kiểm HTTPS qua tên miền thật, diễn tập nâng cấp, đặt cron sao lưu và dọn file |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |
 
 ## Định nghĩa hoàn thành của cả dự án

@@ -1,6 +1,17 @@
 # Vận hành và triển khai
 
-Dành cho người quản trị hệ thống. Trạng thái hiện tại: chạy được bằng tay ở máy phát triển; đóng gói Docker Compose thuộc giai đoạn 08, chưa làm.
+Dành cho người quản trị hệ thống. Chạy được hai kiểu: bằng tay ở máy phát triển, hoặc bằng Docker Compose trên máy chủ Linux.
+
+**Phân biệt hai CSDL — đọc trước khi gõ bất cứ lệnh nào đụng dữ liệu:**
+
+| | Máy phát triển | Máy chủ triển khai |
+|---|---|---|
+| CSDL | PostgreSQL trong WSL, ngay trên máy cá nhân | PostgreSQL **ở máy chủ khác**, dùng chung với dự án khác |
+| Cấu hình đọc từ | `.env` | `.env.production` |
+| Lệnh migration | `npm run db:migrate` | Service `migrate` trong compose, tự chạy |
+| Rủi ro chạy nhầm | Mất dữ liệu thử nghiệm | **Đụng dữ liệu dự án khác** |
+
+Ứng dụng **không sở hữu** CSDL trên máy chủ. Mọi lệnh có ghi phải in ra host + tên CSDL rồi xác nhận trước khi chạy — các script trong `scripts/` đã làm sẵn việc đó.
 
 ## Biến môi trường
 
@@ -12,9 +23,18 @@ Chép `.env.example` thành `.env` rồi điền. **Không commit `.env`.**
 | `HARAVAN_API_TOKEN` | Có | Token ứng dụng riêng của Haravan. **Chỉ dùng ở phía máy chủ**, tuyệt đối không đặt tiền tố `NEXT_PUBLIC_` |
 | `UPLOAD_DIR` | Không | Thư mục giữ file `.xlsx` đã tải lên, để xuất lại báo cáo. Mặc định `.uploads` |
 
+Khi triển khai bằng Docker Compose thì chép `.env.production.example` thành `.env.production` và điền thêm bốn biến nữa. **Không commit `.env.production`.**
+
+| Biến | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `APP_DOMAIN` | Có | Tên miền công bố. Dùng cho cả địa chỉ site của Caddy lẫn `allowedOrigins` của Server Action |
+| `CADDY_TLS` | Không | Cách cấp chứng chỉ TLS — xem mục [Chứng chỉ TLS](#chứng-chỉ-tls). Bỏ trống = Let's Encrypt |
+| `UPLOAD_RETENTION_DAYS` | Không | Số ngày giữ file `.xlsx` đã nạp. Mặc định `90` |
+| `UPLOAD_DIR` | Có | Trong container là `/data/uploads`, khớp với volume trong `docker-compose.yml` |
+
 Địa chỉ gốc của API Haravan **không** nằm trong biến môi trường — nó là thiết lập `haravan.api_base` trong CSDL, sửa được trên màn cấu hình. Giá trị nhập vào bị ràng buộc phải là `https` và thuộc tên miền `haravan.com`, để không ai vô tình gửi token sang máy chủ khác.
 
-## Cài đặt lần đầu
+## Cài đặt lần đầu (máy phát triển)
 
 ```bash
 npm install
@@ -45,6 +65,124 @@ Lệnh này **ghi đè** mọi tinh chỉnh trên màn cấu hình bằng giá t
 
 Kiểm tra đang trỏ vào CSDL nào trước khi chạy bất cứ lệnh nào đụng dữ liệu. Dòng đã bị chú thích bằng `#` trong `.env` là cấu hình đã bỏ, không phải cấu hình đang dùng.
 
+## Triển khai bằng Docker Compose
+
+Ba dịch vụ chạy theo thứ tự: `migrate` (chạy một lần, phải thoát mã 0) → `app` (phải khoẻ) → `caddy`. CSDL **không** nằm trong compose.
+
+```
+Internet / mạng nội bộ
+        │ 443, 80 → chuyển hướng
+        ▼
+     caddy ──3000──▶ app ──┐ chạy sau
+                            └── migrate (một lần)
+                                  │
+                                  ▼ 5432
+                     PostgreSQL ở máy chủ khác
+```
+
+### Trước khi chạy lần đầu
+
+Xin bên quản trị CSDL: host, cổng, tên CSDL, tài khoản, có bắt buộc SSL không, tài khoản có quyền `CREATE TABLE` để chạy migration không, và **họ đã có lịch sao lưu chưa** — có rồi thì phía ứng dụng khỏi làm trùng.
+
+```bash
+cp .env.production.example .env.production
+# điền APP_DOMAIN, DATABASE_URL, HARAVAN_API_TOKEN
+```
+
+### Lệnh thường dùng
+
+Mọi lệnh compose **bắt buộc** kèm `--env-file .env.production`. Compose đọc `env_file:` để truyền biến vào container, nhưng phần thay thế `${...}` trong `docker-compose.yml` lại lấy từ `--env-file` (hoặc từ `.env`, mà `.env` ở đây là cấu hình máy phát triển). Thiếu cờ này thì dừng ở lỗi `thiếu APP_DOMAIN`. Các script npm dưới đây đã kèm sẵn:
+
+```bash
+npm run docker:build        # dựng image
+npm run docker:up           # khởi động, migrate tự chạy trước
+npm run docker:logs         # xem nhật ký, Ctrl+C để thoát
+npm run docker:ps           # xem trạng thái, kiểm cổng ánh xạ ra ngoài
+npm run docker:down         # dừng — volume vẫn còn, dữ liệu không mất
+```
+
+**Kiểm CSDL đang nhắm tới trước khi `up` lần đầu:**
+
+```bash
+grep -E "^DATABASE_URL=" .env.production
+```
+
+Neo `^` là bắt buộc: dòng đã chú thích bằng `#` là cấu hình đã bỏ, không phải cấu hình đang dùng.
+
+Xem nhật ký của riêng service `migrate` để chắc migration và seed chạy đúng:
+
+```bash
+docker compose --env-file .env.production logs migrate
+```
+
+### Nâng cấp
+
+```bash
+git pull
+npm run docker:build && npm run docker:up
+```
+
+Migration mới tự áp qua service `migrate`. Volume `uploads` và `caddy-data` không bị đụng, dữ liệu còn nguyên.
+
+**Đổi `APP_DOMAIN` thì phải dựng lại image**, không chỉ `up -d`. `allowedOrigins` của Server Action bị nướng vào `server.js` lúc build — đã kiểm chứng bằng cách `grep` trong image. Chỉ `up -d` thôi thì nút Lưu ở màn cấu hình sẽ báo `Invalid Server Actions request`.
+
+### Chứng chỉ TLS
+
+Chọn bằng biến `CADDY_TLS` trong `.env.production`, không sửa `Caddyfile`:
+
+| Tình huống | `CADDY_TLS` | Ghi chú |
+|---|---|---|
+| Tên miền công khai, phân giải được từ Internet | để trống | Caddy tự xin Let's Encrypt và tự gia hạn |
+| Tên miền chỉ dùng trong mạng nội bộ | `tls internal` | Caddy dựng CA riêng. **Máy người dùng phải cài chứng chỉ gốc của CA đó**, không thì trình duyệt vẫn báo đỏ. Lấy chứng chỉ gốc: `docker compose --env-file .env.production exec caddy cat /data/caddy/pki/authorities/local/root.crt` |
+| Công ty đã cấp chứng chỉ riêng | `tls /etc/caddy/cert.pem /etc/caddy/key.pem` | Gắn thêm volume chứa file chứng chỉ vào service `caddy`; tự lo việc gia hạn |
+
+Đổi giá trị này chỉ cần `docker compose --env-file .env.production up -d caddy`, khỏi dựng lại image.
+
+**Không xoá volume `caddy-data`.** Nó chứa chứng chỉ TLS; Let's Encrypt có giới hạn số lần cấp mỗi tuần.
+
+### Kiểm tra sau khi triển khai
+
+```bash
+docker compose --env-file .env.production ps          # chỉ caddy có ánh xạ cổng ra ngoài
+docker compose --env-file .env.production exec app whoami   # → nextjs
+docker compose --env-file .env.production exec app date     # → giờ Việt Nam (+07)
+curl -sS https://$APP_DOMAIN/api/health                # → {"status":"ok","database":"up"}
+```
+
+Rồi chạy hết luồng qua tên miền thật: đồng bộ danh mục → nạp file mẫu → xuất Excel → **bấm Lưu ở màn cấu hình** (đây là chỗ dễ dính lỗi `allowedOrigins` nhất).
+
+## Sao lưu và phục hồi
+
+Bốn script trong `scripts/`, đều đọc `.env.production` và bỏ qua dòng đã chú thích.
+
+```bash
+sh scripts/backup-db.sh                       # pg_dump → backups/*.dump
+sh scripts/backup-uploads.sh                  # đóng gói file Excel → backups/*.tar.gz
+npm run docker:backup                         # chạy cả hai
+sh scripts/restore-db.sh backups/<tên>.dump   # PHỤC HỒI — xoá bảng cũ, có bước xác nhận
+sh scripts/prune-uploads.sh                   # dọn file quá hạn
+sh scripts/prune-uploads.sh --dry-run         # chỉ liệt kê, không xoá
+```
+
+Script chạy `pg_dump`/`pg_restore` qua container `postgres:18-alpine` nên máy chủ khỏi cài `psql`. Chuỗi kết nối được giãn **bên trong** container, không lọt vào lịch sử lệnh của máy chủ.
+
+`restore-db.sh` **cố tình không có cờ bỏ qua xác nhận**: nó xoá toàn bộ bảng của dự án rồi dựng lại, và CSDL nằm trên máy chủ dùng chung. Phục hồi không bao giờ là việc chạy theo lịch.
+
+Bản sao lưu chưa từng phục hồi thử thì chưa tính là có sao lưu — thử phục hồi vào một CSDL rỗng định kỳ, đối chiếu số dòng `CheckRun`, `Finding`, `RuleConfig` với bản gốc.
+
+### Đặt lịch trên máy chủ
+
+```cron
+# sao lưu 2 giờ sáng hằng ngày
+0 2 * * * cd /opt/promotion-checking && sh scripts/backup-db.sh && sh scripts/backup-uploads.sh
+# dọn file Excel quá hạn 3 giờ sáng hằng ngày
+0 3 * * * cd /opt/promotion-checking && sh scripts/prune-uploads.sh
+```
+
+File `*.dump` và `*.tar.gz` chứa dữ liệu kinh doanh thật (giá vốn, giá bán). Chúng đã nằm trong `.gitignore`; đưa bản sao lưu ra khỏi máy chủ theo quy định nội bộ.
+
+Dọn file rồi thì lần chạy cũ **không xuất lại báo cáo được nữa** — màn kết quả báo "file gốc đã hết hạn lưu, tải lên lại để xuất báo cáo" chứ không lỗi. Bản ghi `CheckRun` và toàn bộ kết quả kiểm tra vẫn còn.
+
 ## Bảo mật vận hành
 
 **Công cụ không có đăng nhập.** Đã chốt chạy trong mạng nội bộ. Hệ quả:
@@ -67,8 +205,10 @@ Những chốt chặn đã có sẵn trong mã:
 |---|---|---|
 | Đồng bộ đầy đủ danh mục | Hằng ngày hoặc trước mỗi đợt import lớn | Màn **Đồng bộ danh mục** → **Đồng bộ lại từ đầu** |
 | Đồng bộ tăng dần | Trước mỗi lần kiểm tra file | Cùng màn, nút còn lại. Nhanh hơn nhiều nhưng không thấy sản phẩm đã bị xoá |
-| Dọn thư mục `UPLOAD_DIR` | Theo dung lượng đĩa | **Chưa có script** — `scripts/prune-uploads.sh` thuộc giai đoạn 08 |
-| Sao lưu CSDL | Theo quy định nội bộ | `pg_dump`. File kết xuất chứa dữ liệu kinh doanh, không đưa vào kho mã |
+| Dọn thư mục `UPLOAD_DIR` | Hằng ngày, đặt cron | `sh scripts/prune-uploads.sh`. Số ngày giữ lấy từ `UPLOAD_RETENTION_DAYS` |
+| Sao lưu CSDL | Hằng ngày, đặt cron | `sh scripts/backup-db.sh`. Hỏi bên quản trị CSDL trước — có sẵn lịch của họ thì khỏi làm trùng |
+| Sao lưu file Excel đã nạp | Hằng ngày, đặt cron | `sh scripts/backup-uploads.sh`. Kết xuất CSDL **không** bao gồm file này |
+| Thử phục hồi bản sao lưu | Hằng quý | `sh scripts/restore-db.sh` vào một CSDL rỗng, đối chiếu số dòng |
 
 ## Điều tiết nhịp gọi Haravan
 
@@ -78,7 +218,7 @@ Gặp `429` thì công cụ hiểu đó là chuyện giới hạn nhịp chứ k
 
 Đồng bộ chậm bất thường thì nâng `haravan.requests_per_second` lên 4 trước, đừng động vào `haravan.page_size` — Haravan ép cứng tối đa 50 bản ghi mỗi trang, đặt lớn hơn sẽ làm vòng phân trang hiểu nhầm một trang đầy là trang cuối.
 
-## Kiểm tra sức khoẻ sau khi triển khai
+## Kiểm tra sức khoẻ trước khi phát hành
 
 ```bash
 npm run typecheck && npm run lint && npm test && npm run build
@@ -88,8 +228,7 @@ Rồi mở lần lượt: **Đồng bộ danh mục** (số sản phẩm khớp 
 
 ## Giới hạn đã biết
 
-- Chưa có xác thực người dùng.
-- Chưa có script dọn file tải lên.
+- Chưa có xác thực người dùng. HTTPS chỉ bảo vệ đường truyền, không bảo vệ quyền truy cập — muốn mở ra ngoài mạng nội bộ thì phải thêm lớp xác thực trước (`basic_auth` của Caddy là mức tối thiểu, tốt hơn là nối SSO công ty).
 - Trang lịch sử hiện 100 lần chạy gần nhất, chưa phân trang.
 - `GET /com/promotions.json` không lọc được phía máy chủ, nên mỗi lần đối soát đều kéo toàn bộ chương trình khuyến mãi của cửa hàng về rồi lọc trong bộ nhớ. Cửa hàng tích luỹ nhiều năm sẽ phải xem lại điểm này.
 - Ngân sách 30 giây cho 3.000 sản phẩm chưa kiểm chứng được — cửa hàng dev chỉ có 74 sản phẩm.

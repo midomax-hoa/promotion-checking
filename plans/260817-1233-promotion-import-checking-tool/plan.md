@@ -39,7 +39,7 @@ Web nội bộ giúp người phụ trách biết file Excel khuyến mãi đún
 | 05 | [Màn kiểm tra file & xuất báo cáo](phase-05-man-kiem-tra-file-va-xuat-bao-cao.md) | 04 | ✅ Xong 2026-08-18 |
 | 06 | [Màn đối soát sau import (nhóm F)](phase-06-man-doi-soat-sau-import.md) | 04 | ✅ Xong 2026-08-18 |
 | 07 | [Màn cấu hình luật & tài liệu](phase-07-man-cau-hinh-luat-va-tai-lieu.md) | 01 | ✅ Xong 2026-08-18 |
-| 08 | [Triển khai bằng Docker Compose](phase-08-trien-khai-bang-docker-compose.md) | 05 | ⬜ Chưa làm |
+| 08 | [Triển khai bằng Docker Compose](phase-08-trien-khai-bang-docker-compose.md) | 05 | 🟡 Đóng gói xong 2026-08-18 — chờ máy chủ để triển khai thật |
 
 Giai đoạn 08 chỉ cần 05 là chạy được, không phải chờ 06/07. `next.config.ts` đã bật sẵn `output: 'standalone'` ở giai đoạn 01. Riêng `binaryTargets` cho Alpine **không cần nữa**: bản cài thực tế là Prisma 7, không còn engine nhị phân — chi tiết ở [giai đoạn 01](phase-01-nen-tang-du-an-va-luoc-do-du-lieu.md#kết-quả-thực-tế-2026-08-17).
 

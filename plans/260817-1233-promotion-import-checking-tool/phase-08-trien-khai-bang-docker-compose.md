@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Trung bình — làm sau khi ứng dụng chạy được ở máy cá nhân
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** 🟡 Đóng gói xong 2026-08-18 — chờ máy chủ và thông tin CSDL để triển khai thật
 - **Phụ thuộc:** Giai đoạn 05 (luồng chính đã chạy được). Không cần chờ 06/07.
 - Đóng gói ứng dụng thành image, dựng bằng Docker Compose trên **máy chủ Linux**: một lệnh `docker compose up -d` là có web chạy sau reverse proxy có HTTPS. CSDL **nằm ở máy chủ khác**, chỉ trỏ tới bằng chuỗi kết nối.
 
@@ -383,20 +383,20 @@ CSDL nằm ở máy chủ khác nên **phải hỏi bên quản trị đã có s
 
 ## Danh sách việc
 
-- [ ] `output: 'standalone'` + `allowedOrigins` trong `next.config.ts`
-- [ ] Lưu / đọc lại file Excel qua `UPLOAD_DIR`, xử lý file đã bị dọn
-- [ ] Điểm kiểm tra sức khoẻ `/api/health`
-- [ ] `.dockerignore` (trước lần build đầu)
-- [ ] `Dockerfile` 4 chặng, chạy bằng người dùng không phải root
-- [ ] `docker-compose.yml`: `migrate` → `app` → `caddy`, thêm profile `tools`
-- [ ] `Caddyfile` + chốt cách cấp chứng chỉ TLS
-- [ ] `.env.production.example` và cập nhật `.gitignore`
-- [ ] Xin cấu hình CSDL và xác nhận trước khi chạy migration
-- [ ] Script sao lưu CSDL, sao lưu file tải lên, dọn file quá hạn
-- [ ] Chạy thử toàn luồng qua HTTPS với tên miền thật
-- [ ] Cron sao lưu + dọn file
-- [ ] Diễn tập nâng cấp không mất dữ liệu
-- [ ] Viết tài liệu vận hành
+- [x] `output: 'standalone'` + `allowedOrigins` trong `next.config.ts`
+- [x] Lưu / đọc lại file Excel qua `UPLOAD_DIR`, xử lý file đã bị dọn
+- [x] Điểm kiểm tra sức khoẻ `/api/health`
+- [x] `.dockerignore` (trước lần build đầu)
+- [x] `Dockerfile` 5 chặng (thêm `migrator-deps`), chạy bằng người dùng không phải root
+- [x] `docker-compose.yml`: `migrate` → `app` → `caddy`, thêm profile `tools`
+- [x] `Caddyfile` + chốt cách cấp chứng chỉ TLS
+- [x] `.env.production.example` và cập nhật `.gitignore`
+- [ ] Xin cấu hình CSDL và xác nhận trước khi chạy migration — **chờ bên quản trị CSDL**
+- [x] Script sao lưu CSDL, sao lưu file tải lên, dọn file quá hạn
+- [ ] Chạy thử toàn luồng qua HTTPS với tên miền thật — **chờ máy chủ**
+- [ ] Cron sao lưu + dọn file — **chờ máy chủ**
+- [ ] Diễn tập nâng cấp không mất dữ liệu — **chờ máy chủ**
+- [x] Viết tài liệu vận hành
 
 ## Tiêu chí hoàn thành
 
@@ -448,9 +448,50 @@ CSDL nằm ở máy chủ khác nên **phải hỏi bên quản trị đã có s
 - Đặt cron sao lưu hằng ngày và **thử phục hồi định kỳ** (bản sao lưu chưa từng phục hồi thử thì chưa tính là có sao lưu)
 - Kho mã nguồn đã init git thì cân nhắc workflow dựng image; hiện triển khai bằng tay trên máy chủ nội bộ nên chưa cần
 
+## Kết quả thực tế (2026-08-18)
+
+Đóng gói xong và kiểm chứng bằng Docker trong WSL. Phần triển khai lên máy chủ thật (bước 9–19) còn treo vì chưa có máy chủ Linux và thông tin CSDL.
+
+### Ba chỗ kế hoạch nói sai, đã sửa
+
+| Kế hoạch nói | Thực tế |
+|---|---|
+| Prisma 7 không còn engine nhị phân, nên `npm ci` có thể `--ignore-scripts` | Đúng với **client**, sai với **CLI**. `prisma migrate deploy` cần `schema-engine-linux-musl-openssl-3.0.x` (~20 MB) mà `@prisma/engines` tải trong `postinstall`. Chặng `deps` phải chép sẵn `prisma/schema.prisma` và `prisma.config.ts` **trước** `npm ci`, rồi để hook chạy trọn |
+| `Dockerfile` 4 chặng, chặng `migrator` chép `node_modules` rồi xoá bớt | Xoá ở layer sau **không** thu hồi dung lượng layer trước — image vẫn 1,51 GB. Phải tách chặng `migrator-deps` để cắt, rồi `COPY --from` sang: còn 931 MB |
+| Chỉ cần `.env.production` là `docker compose up` chạy | `env_file:` chỉ truyền biến **vào container**; phần thay thế `${...}` trong compose lấy từ `--env-file`. Thiếu cờ này thì dừng ở `thiếu APP_DOMAIN`. Đã đưa cờ vào toàn bộ script `docker:*` |
+
+### Chốt thêm
+
+- **TLS chọn bằng biến `CADDY_TLS`** thay vì ghi cứng vào `Caddyfile`. Bỏ trống = Let's Encrypt; `tls internal` = CA nội bộ; đường dẫn cert = chứng chỉ công ty. Đổi hướng khỏi sửa file, khỏi dựng lại image.
+- **Giữ file Excel 90 ngày** (`UPLOAD_RETENTION_DAYS`).
+- Thêm `scripts/lib-deploy-env.sh` dùng chung: đọc `.env.production` bằng grep neo `^` nên bỏ đúng dòng đã chú thích, và in `host:cổng/tên-csdl` đã lược mật khẩu trước mọi lệnh có ghi.
+
+### Số đo
+
+| Hạng mục | Kết quả |
+|---|---|
+| Image ứng dụng | **326 MB** (ngưỡng 400 MB) |
+| Image migrator | 931 MB (từ 1,51 GB sau khi cắt) |
+| Migration + seed trên CSDL rỗng | 5 migration áp đúng, 37 luật + 11 thiết lập |
+| `/api/health` | `{"status":"ok","database":"up"}` |
+| `/cau-hinh` | 200, 85 KB HTML, mã luật đọc từ CSDL đã seed |
+| `whoami` / `date` | `nextjs` / `+07` |
+| `docker history` | Không lộ token hay chuỗi kết nối |
+| `docker compose config` | Hợp lệ, **chỉ `caddy`** ánh xạ cổng ra ngoài |
+| `caddy validate` | Hợp lệ ở cả hai chế độ TLS, tự bật chuyển hướng HTTP → HTTPS |
+| `allowedOrigins` trong `server.js` | `allowedOrigins":["promotion.example.com"]` — xác nhận đổi `APP_DOMAIN` là phải dựng lại image |
+
+Toàn dự án: 495 test pass, `typecheck` và `lint` sạch.
+
+### Chưa kiểm chứng được
+
+- Tiêu chí "nạp `promotion.t8.xlsx` qua tên miền thật vẫn ra 279 dòng giảm 0đ" — cần máy chủ. Ở mức mã nguồn thì luồng này không đổi so với giai đoạn 05 nên rủi ro thấp.
+- Sao lưu rồi phục hồi vào CSDL rỗng — script đã kiểm cú pháp và đã thử phần đọc `.env`, nhưng chưa chạy trọn `pg_dump`/`pg_restore` vì chưa có stack thật đang chạy.
+- Thời gian toàn luồng khi CSDL nằm ở máy chủ khác. Máy phát triển nối CSDL cùng máy nên chưa đo được độ trễ mạng.
+
 ## Câu hỏi chưa chốt
 
-1. **Tên miền công bố là gì, và phân giải được từ Internet hay chỉ trong mạng nội bộ?** Quyết định chọn Let's Encrypt hay `tls internal` — đây là chốt cuối còn thiếu để viết `Caddyfile`.
+1. ~~**Tên miền công bố là gì?**~~ Đã xử lý: `Caddyfile` không cần biết trước nữa, chọn bằng biến `CADDY_TLS` lúc triển khai.
 2. **Cấu hình CSDL:** host, cổng, tên CSDL, tài khoản, có bắt buộc SSL không, tài khoản có quyền `CREATE TABLE` để chạy migration không.
 3. **Bên quản trị CSDL đã có lịch sao lưu chưa?** Có rồi thì phía ứng dụng khỏi làm trùng.
-4. **Giữ file Excel bao lâu?** Mặc định đề xuất 90 ngày qua `UPLOAD_RETENTION_DAYS`.
+4. ~~**Giữ file Excel bao lâu?**~~ Đã chốt 2026-08-18: 90 ngày, đặt qua `UPLOAD_RETENTION_DAYS`.
