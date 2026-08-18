@@ -48,7 +48,12 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
   rule('A5', 'A', 'Dòng trống xen giữa vùng dữ liệu', 'warn'),
 
   // Group B - checked against the Haravan catalog cache
-  rule('B1', 'B', 'SKU không tồn tại trên Haravan', 'danger', { params: { suggestMaxDistance: 2 } }),
+  // `suggestMaxComparisons` bounds the near-match search across a whole run.
+  // Without it, a file whose SKUs are all absent from the catalog spends
+  // minutes guessing at codes nobody can use - see helpers/levenshtein.ts.
+  rule('B1', 'B', 'SKU không tồn tại trên Haravan', 'danger', {
+    params: { suggestMaxDistance: 2, suggestMaxComparisons: 2_000_000 },
+  }),
   rule('B2', 'B', 'Sản phẩm chưa đăng bán hoặc đang ẩn', 'warn'),
   rule('B3', 'B', 'Giá niêm yết trong file lệch giá thật trên Haravan', 'danger'),
   rule('B4', 'B', 'Mã hiệu không bắt đầu bằng Mã', 'warn'),
