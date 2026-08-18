@@ -12,10 +12,10 @@ Tài liệu sống, cập nhật mỗi khi một giai đoạn đổi trạng th�
 | 04 | Bộ máy luật (nhóm A–E) | 02, 03 | ✅ Xong 2026-08-18 |
 | 05 | Màn kiểm tra file & xuất báo cáo | 04 | ✅ Xong 2026-08-18 |
 | 06 | Màn đối soát sau import (nhóm F) | 04 | ✅ Xong 2026-08-18 |
-| 07 | Màn cấu hình luật & tài liệu | 01 | ⬜ Chưa làm |
+| 07 | Màn cấu hình luật & tài liệu | 01 | ✅ Xong 2026-08-18 |
 | 08 | Triển khai bằng Docker Compose | 05 | ⬜ Chưa làm |
 
-Giai đoạn 03 và 02 chạy độc lập với nhau. Giai đoạn 07 cắt bỏ được nếu gấp — ngưỡng vẫn nằm đúng chuẩn trong CSDL, chỉ là chưa sửa được trên giao diện.
+Giai đoạn 03 và 02 chạy độc lập với nhau. Giai đoạn 08 chỉ cần 05 là chạy được.
 
 ## Đã xong
 
@@ -83,6 +83,31 @@ Thêm hai migration: `add_reconcile_match` và `add_reconcile_match_sku_count`. 
 Luật D8 và E3 của nhóm trước cũng được nối vào màn kiểm tra file ở giai đoạn này, vì đây là lúc
 danh sách khuyến mãi có sẵn. Gọi API hỏng thì việc kiểm tra vẫn chạy, hai luật đó ghi là bỏ qua.
 
+### Giai đoạn 07 — Màn cấu hình luật & tài liệu (2026-08-18)
+
+Màn hình ⑦ tại `/cau-hinh`: 37 luật gom sáu nhóm A–F cùng 11 thiết lập chung, tất cả sửa được mà không đụng mã nguồn. Lưu bằng Server Action, kiểm bằng `zod`, chỉ ghi dòng thật sự đổi nên `RuleConfig.updatedAt` giữ đúng nghĩa.
+
+Kiểm chứng trên bản dựng thật, CSDL thật, file mẫu thật:
+
+| Tiêu chí | Kết quả |
+|---|---|
+| Hạ ngưỡng luật C4 từ 70% xuống 50% | Phát hiện C4 tăng từ **0 lên 189** |
+| Tắt một luật đang báo (C2) | 279 phát hiện → **0** |
+| Tắt cả nhóm D (D3, D4, D5 đang báo) | **Không còn phát hiện nào của nhóm D** |
+| Khôi phục mặc định toàn bộ | Số phát hiện trùng khớp mốc ban đầu |
+| Nhập `maxDiscountPercent = 500` | Bị chặn, báo tiếng Việt, **giá trị vừa gõ vẫn nằm lại** trên màn hình |
+| Nhập `haravan.page_size = 250` | Bị chặn: "Giá trị tối đa cho phép là 50." |
+| Ghi chọn lọc | Đổi 2 luật → chỉ 2 dòng có `updatedAt` mới |
+
+Hai điều chỉnh so với kế hoạch, cả hai đến từ thao tác thật trên trình duyệt:
+
+- **Biểu mẫu đặt `noValidate`.** Để nguyên, trình duyệt chặn trước bằng bong bóng tiếng Anh và thông báo tiếng Việt không bao giờ hiện ra.
+- **Trạng thái trả về mang theo nguyên văn giá trị bị từ chối.** React tự `reset` biểu mẫu sau khi Server Action trả về, nên nếu không làm vậy thì ô nhập bật về giá trị cũ trong khi lỗi vẫn trỏ vào nó.
+
+Tài liệu: thêm `codebase-summary.md`, `huong-dan-su-dung.md` (cho người dùng cuối, kèm ảnh chụp màn hình), `van-hanh-va-trien-khai.md`; cập nhật `system-architecture.md` và `code-standards.md`.
+
+Tổng 495 test pass; `typecheck`, `lint`, `build` sạch. Không thêm migration — bảng `RuleConfig` và `AppSetting` đã đủ từ giai đoạn 01.
+
 ## Việc còn treo
 
 | Việc | Vì sao còn treo | Cần làm gì |
@@ -93,6 +118,7 @@ danh sách khuyến mãi có sẵn. Gọi API hỏng thì việc kiểm tra vẫ
 | Trường `set_time_active` | Bản ghi duy nhất trên store dev để `false` | Chưa rõ nó ảnh hưởng ra sao tới `starts_at`/`ends_at`. Nếu ảnh hưởng thì luật F3 cần tính thêm |
 | Nhóm B chưa đối chiếu danh mục thật | Store dev không có 3.929 mã hiệu của file mẫu | Đồng bộ cửa hàng thật rồi chạy lại, đo số mã hiệu không tra ra và chất lượng gợi ý của B1 |
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
+| Ảnh chụp cấu hình theo từng lần chạy | Bảng rủi ro của giai đoạn 07 giả định `CheckRun` có lưu, nhưng lược đồ không có cột nào như vậy | Thêm một cột `Json` vào `CheckRun` kèm migration, ghi lại `RuleConfig` lúc chạy. Không có nó thì không giải thích được vì sao hai lần chạy cách nhau một lần chỉnh cấu hình lại ra số khác nhau |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |
 
 ## Định nghĩa hoàn thành của cả dự án

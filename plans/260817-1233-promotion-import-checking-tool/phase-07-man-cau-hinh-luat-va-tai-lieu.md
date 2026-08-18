@@ -8,7 +8,7 @@
 ## Tổng quan
 
 - **Ưu tiên:** Trung bình — **có thể cắt bỏ nếu gấp**
-- **Trạng thái:** Chưa làm
+- **Trạng thái:** ✅ Xong 2026-08-18
 - Giao diện sửa cấu hình 37 luật và các thiết lập chung, cộng với bộ tài liệu dự án.
 
 **Vì sao cắt được:** ngưỡng đã nằm đúng chuẩn trong DB từ giai đoạn 01. Không có màn này thì vẫn sửa được bằng `prisma studio` hoặc sửa seed. Màn này chỉ để người không rành kỹ thuật tự chỉnh.
@@ -106,15 +106,15 @@ export const ruleParamSchemas = {
 
 ## Danh sách việc
 
-- [ ] `rule-config-schema.ts` với zod
-- [ ] Màn cấu hình đọc `RuleConfig` + `AppSetting`
-- [ ] Server Action lưu cấu hình có kiểm tra hợp lệ
-- [ ] Bảng luật gom nhóm + công tắc theo nhóm
-- [ ] Ô nhập tham số dựng từ lược đồ
-- [ ] Nút khôi phục mặc định (từng luật và toàn bộ)
-- [ ] Đánh dấu giá trị khác mặc định
-- [ ] Viết `docs/` (7 tài liệu)
-- [ ] Hướng dẫn sử dụng tiếng Việt cho người dùng cuối
+- [x] `rule-config-schema.ts` với zod
+- [x] Màn cấu hình đọc `RuleConfig` + `AppSetting`
+- [x] Server Action lưu cấu hình có kiểm tra hợp lệ
+- [x] Bảng luật gom nhóm + công tắc theo nhóm
+- [x] Ô nhập tham số dựng từ lược đồ
+- [x] Nút khôi phục mặc định (từng luật và toàn bộ)
+- [x] Đánh dấu giá trị khác mặc định
+- [x] Viết `docs/` (7 tài liệu)
+- [x] Hướng dẫn sử dụng tiếng Việt cho người dùng cuối
 
 ## Tiêu chí hoàn thành
 
@@ -138,6 +138,48 @@ export const ruleParamSchemas = {
 - Mọi dữ liệu nhập vào phải qua `zod` trước khi ghi DB
 - Server Action kiểm tra mã luật nằm trong danh mục hợp lệ, không nhận mã tuỳ ý
 - Tài liệu **không** được chứa token thật; chỉ nêu tên biến môi trường
+
+## Kết quả thực tế (2026-08-18)
+
+### File đã làm
+
+Khác kế hoạch ở ba chỗ, đều theo hướng gọn hơn:
+
+| Kế hoạch | Thực tế | Vì sao |
+|---|---|---|
+| `src/lib/config/rule-config-schema.ts` | Giữ nguyên, thêm `rule-config-form.ts` và `config-form-state.ts` | Phần đọc biểu mẫu tách khỏi phần chạm CSDL để test được không cần CSDL; module `'use server'` chỉ được export hàm async nên kiểu dùng chung phải nằm file khác |
+| `docs/` 7 tài liệu | 3 tài liệu mới, 4 tài liệu cập nhật | `system-architecture.md`, `code-standards.md`, `project-changelog.md`, `development-roadmap.md` đã có sẵn từ các giai đoạn trước |
+| Công tắc tắt cả nhóm | Làm bằng thao tác hàng loạt, không thêm cột CSDL | Không cần lược đồ mới; tắt cả nhóm chỉ là đặt `enabled = false` cho các luật thuộc nhóm |
+
+### Đối chiếu tiêu chí hoàn thành
+
+| Tiêu chí | Kết quả đo trên bản dựng thật, CSDL thật, file `promotion.t8.xlsx` |
+|---|---|
+| Hạ `maxDiscountPercent` 70 → 50, số phát hiện C4 tăng | ✅ **0 → 189** |
+| Tắt một luật thì phát hiện của nó biến mất | ✅ C2 từ 279 xuống **0** (C7 mặc định không báo dòng nào trên file này nên đo bằng C2) |
+| Tắt cả một nhóm thì cả nhóm biến mất | ✅ Tắt nhóm D (D3, D4, D5 đang báo) → **không còn phát hiện nào của nhóm D** (nhóm E cũng không báo dòng nào trên file này) |
+| Khôi phục mặc định trả về đúng `rule-catalog.ts` | ✅ Số phát hiện trùng khớp mốc ban đầu |
+| Giá trị không hợp lệ bị chặn kèm thông báo tiếng Việt | ✅ `maxDiscountPercent = 500` → "Mức giảm tối đa coi là bình thường phải nằm trong khoảng 1 đến 100 %."; `haravan.page_size = 250` → "Giá trị tối đa cho phép là 50." |
+| `docs/` đủ tài liệu, không tài liệu nào vượt 800 dòng | ✅ 7 tài liệu, dài nhất 438 dòng |
+
+Thêm một hành vi ngoài tiêu chí, phục vụ ô rủi ro về dấu vết chỉnh sửa: đổi 2 luật rồi lưu thì **chỉ 2 dòng** có `updatedAt` mới.
+
+### Một ô giảm thiểu rủi ro chưa làm được
+
+Bảng rủi ro phía trên ghi *"`CheckRun` lưu ảnh chụp cấu hình lúc chạy để truy vết về sau"*. Kiểm lại `prisma/schema.prisma`: **bảng `CheckRun` không có cột nào chứa ảnh chụp cấu hình**, và giai đoạn 01/05 cũng chưa từng thêm. Danh sách việc của giai đoạn này không có mục đó nên không tự ý mở rộng phạm vi.
+
+Hệ quả thật: mở lại một lần chạy cũ vẫn thấy nguyên số phát hiện đã lưu, nhưng **không biết được lần chạy đó dùng ngưỡng nào**. So hai lần chạy cách nhau một lần chỉnh cấu hình sẽ không giải thích được vì sao số liệu lệch.
+
+Muốn khoả lấp thì cần thêm một cột `Json` vào `CheckRun` cùng một migration, ghi lại `RuleConfig` tại thời điểm chạy — chờ xác nhận trước khi làm.
+
+### Hai chỗ phải sửa sau khi thao tác thật trên trình duyệt
+
+- **Biểu mẫu phải đặt `noValidate`.** Ô nhập số có `min`/`max` nên trình duyệt tự chặn trước bằng bong bóng tiếng Anh, thông báo tiếng Việt của công cụ không bao giờ hiện ra. Giữ lại `min`/`max` cho bộ tăng giảm và trình đọc màn hình.
+- **Trạng thái trả về phải mang theo nguyên văn giá trị bị từ chối.** React tự `reset` biểu mẫu sau khi Server Action trả về, nên không làm vậy thì ô nhập bật về giá trị cũ trong khi lỗi vẫn trỏ vào nó — người dùng đọc thấy một ô trông hoàn toàn bình thường.
+
+### Kiểm thử
+
+Thêm 20 test trong `test/config/rule-config-form.test.ts`, gồm cả test đối chiếu mô tả ngưỡng với `rule-catalog.ts` theo đúng ô rủi ro đã nêu. Tổng 495 test pass; `typecheck`, `lint`, `build` sạch.
 
 ## Bước kế tiếp
 

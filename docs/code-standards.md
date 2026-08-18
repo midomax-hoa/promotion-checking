@@ -69,6 +69,17 @@ SKU rỗng lưu xuống CSDL thành `NULL`, để "không có SKU dùng được
 - Tên test nói rõ hành vi được bảo vệ, không nói tên hàm.
 - **Không bỏ qua test hỏng cho qua bản dựng.** Không dùng dữ liệu giả, mẹo vặt hay giải pháp tạm để làm xanh CI.
 
+## Màn cấu hình và Server Action
+
+- **Giá trị nghiệp vụ mô tả một lần.** Ngưỡng của luật khai trong `rule-config-schema.ts` kèm nhãn, đơn vị và khoảng cho phép; lược đồ `zod` dựng ra từ mô tả đó chứ không viết tay song song. Hai nguồn thì sớm muộn cũng lệch.
+- **Mã luật và mã nhóm lấy từ danh mục trong mã nguồn, không lấy từ biểu mẫu.** Biểu mẫu chỉ cung cấp *giá trị*; danh sách *khoá* luôn là `RULE_CATALOG`.
+- **Chỉ ghi dòng thật sự đổi**, để `updatedAt` giữ đúng nghĩa.
+- **Nút khôi phục mặc định không bị chặn bởi giá trị đang sai** của chính ô nó khôi phục.
+- **Trả lại nguyên văn giá trị bị từ chối** trong trạng thái của Server Action. React tự `reset` biểu mẫu sau khi action trả về, không làm vậy thì ô nhập bật về giá trị cũ trong khi lỗi vẫn trỏ vào nó.
+- **Biểu mẫu đặt `noValidate`** để thông báo tiếng Việt của công cụ được hiện, thay vì bong bóng tiếng Anh của trình duyệt.
+- Module `'use server'` **chỉ được export hàm async**. Kiểu và hằng dùng chung phải đặt ở file khác.
+- Phần đọc biểu mẫu tách khỏi phần chạm CSDL (`rule-config-form.ts` so với `actions.ts`), để toàn bộ đường kiểm tra hợp lệ test được không cần CSDL.
+
 ## Giao diện
 
 - **Render phía máy chủ.** Truy vấn, lọc, sắp xếp, phân trang làm ở server; Server Component dựng sẵn bảng. Không kéo hết dữ liệu về trình duyệt rồi mới lọc bằng JS.

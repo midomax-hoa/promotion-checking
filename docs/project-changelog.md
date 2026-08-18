@@ -2,6 +2,56 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-18 — Giai đoạn 07: Màn cấu hình luật & tài liệu
+
+### Thêm mới
+
+**Màn hình & Server Action**
+
+- `src/app/cau-hinh/page.tsx` — Server Component, đọc `RuleConfig` qua chính `loadRuleConfigs()` mà bộ máy luật dùng
+- `src/app/cau-hinh/actions.ts` — hai Server Action lưu luật và lưu thiết lập chung
+- `src/components/config/rule-config-table.tsx` — 37 luật gom sáu nhóm trong **một** biểu mẫu
+- `src/components/config/rule-param-editor.tsx` — ô nhập ngưỡng dựng từ mô tả, không viết tay từng luật
+- `src/components/config/group-toggle.tsx` — công tắc bật/tắt cả nhóm
+- `src/components/config/app-setting-form.tsx` — 11 thiết lập chung
+
+**Tầng cấu hình** (`src/lib/config/`)
+
+- `rule-config-schema.ts` — mô tả ngưỡng sửa được của từng luật (nhãn, đơn vị, chặn trên chặn dưới); lược đồ `zod` dựng ra từ chính mô tả đó
+- `rule-config-form.ts` — đọc biểu mẫu thành các bản cập nhật, thuần hoàn toàn nên test được không cần CSDL
+- `config-form-state.ts` — hình dạng dùng chung, tách khỏi module `'use server'` vì module đó chỉ được export hàm async
+
+**Tài liệu** — `codebase-summary.md`, `huong-dan-su-dung.md` (cho người dùng cuối, kèm ảnh chụp màn hình), `van-hanh-va-trien-khai.md`
+
+**Kiểm thử** — thêm 20 test trong `test/config/rule-config-form.test.ts`; tổng dự án 495 test
+
+### Thay đổi
+
+- `src/lib/config/app-config.ts` — thêm `validateSettingValue`, dùng **đúng lược đồ** mà lúc chạy thật đang áp, kèm bộ dịch thông báo `zod` sang tiếng Việt. Giá trị đã qua đây thì chắc chắn không rơi vào nhánh dự phòng
+- `src/lib/rules/rule-catalog.ts` — thêm `GROUP_TITLES`, `GROUP_CODES`, `isGroupCode`. Tên nhóm nằm cùng chỗ với mã nhóm
+- `src/app/layout.tsx` — thêm mục điều hướng **Cấu hình luật**
+
+Không có thay đổi lược đồ dữ liệu: `RuleConfig` và `AppSetting` đã đủ từ giai đoạn 01.
+
+### Hai chỗ phải sửa sau khi thao tác thật trên trình duyệt
+
+| Hiện tượng | Xử lý |
+|---|---|
+| Nhập 500 rồi bấm Lưu, không thấy thông báo nào | Trình duyệt tự chặn theo `max` của ô số, bằng bong bóng tiếng Anh. Biểu mẫu chuyển sang `noValidate`; `min`/`max` giữ lại cho bộ tăng giảm và trình đọc màn hình |
+| Báo lỗi đúng nhưng ô nhập bật về giá trị cũ | React tự `reset` biểu mẫu sau khi Server Action trả về. Trạng thái trả về nay mang theo nguyên văn giá trị đã gửi, biểu mẫu dựng lại từ đó |
+
+### Kiểm chứng
+
+Chạy trên bản dựng thật, CSDL thật và file mẫu `promotion.t8.xlsx`:
+
+- Hạ ngưỡng luật C4 từ 70% xuống 50% → phát hiện C4 tăng từ **0 lên 189**
+- Tắt luật C2 (đang báo 279 dòng) → còn **0**
+- Tắt cả nhóm D (D3, D4, D5 đang báo) → **không còn phát hiện nào của nhóm D**
+- Khôi phục mặc định toàn bộ → số phát hiện trùng khớp mốc ban đầu
+- `maxDiscountPercent = 500` → bị chặn: "Mức giảm tối đa coi là bình thường phải nằm trong khoảng 1 đến 100 %."
+- `haravan.page_size = 250` → bị chặn: "Giá trị tối đa cho phép là 50."
+- Đổi 2 luật rồi lưu → **chỉ 2 dòng** có `updatedAt` mới, các dòng khác giữ nguyên mốc cũ
+
 ## 2026-08-18 — Giai đoạn 06: Màn đối soát sau import (nhóm F)
 
 ### Thêm mới

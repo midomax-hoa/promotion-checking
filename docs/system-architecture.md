@@ -33,15 +33,21 @@ src/
     ket-qua/[runId]/    # màn hình ② Kết quả một lần chạy
     lich-su/            # danh sách các lần đã kiểm tra
     dong-bo/            # màn hình ③ Đồng bộ danh mục
+    doi-soat/           # màn hình ⑤ và ⑥ Đối soát sau import
+    cau-hinh/           # màn hình ⑦ Cấu hình luật, kèm Server Action
     api/check/          # nhận file tải lên; tuyến con export trả file báo cáo
     api/sync/route.ts   # chạy đồng bộ, phát tiến trình dạng NDJSON
+    api/reconcile/      # chạy đối soát, phát tiến trình dạng NDJSON
   components/check/     # thành phần của màn kiểm tra, chỉ upload-panel chạy ở trình duyệt
+  components/reconcile/ # bảng so ba cột và bộ chạy đối soát
+  components/config/    # bảng luật, ô nhập ngưỡng, công tắc theo nhóm
   lib/
     haravan/            # tầng gọi API và đồng bộ
     catalog/            # cache danh mục và tra cứu SKU
     excel/              # đọc, chuẩn hoá và xuất file khuyến mãi
     check/              # điều phối một lần kiểm tra, lưu trữ và truy vấn kết quả
-    config/             # đọc AppSetting có kiểm tra kiểu
+    reconcile/          # đối soát hai lượt và 6 luật nhóm F
+    config/             # đọc AppSetting có kiểm tra kiểu, và lược đồ màn cấu hình
     db/prisma.ts        # Prisma client khởi tạo trễ
     rules/              # danh mục 37 luật, bộ máy chạy luật, 31 luật nhóm A–E
     serialization/      # chuyển BigInt qua ranh giới server ↔ trình duyệt
@@ -360,6 +366,40 @@ Thư mục lấy từ `UPLOAD_DIR`, mặc định `./.uploads` khi phát triển
 Tên file là chuỗi duy nhất trong tính năng này có thể biến thành một đường dẫn tuỳ ý, nên bị chặn hai lớp: lúc ghi, tên gốc bị viết lại chỉ còn `[A-Za-z0-9-]` và ép đuôi `.xlsx`; lúc đọc, đường dẫn giải ra được kiểm lại là còn nằm trong thư mục lưu — kể cả khi giá trị đó lấy từ CSDL.
 
 File mất (bị dọn theo hạn lưu, hoặc chưa từng ghi được) **không phải lỗi**: màn kết quả thay nút xuất bằng câu "file gốc đã hết hạn lưu, tải lên lại để xuất báo cáo".
+
+## Màn cấu hình luật (giai đoạn 07)
+
+Màn hình hiện thực hoá nguyên tắc **không chôn cứng giá trị nghiệp vụ**: 37 luật và 11 thiết lập chung đều sửa được mà không cần đụng vào mã nguồn.
+
+### Một biểu mẫu cho cả 37 luật
+
+Cả bảng luật là **một** `<form>` gắn Server Action, không phải 37 biểu mẫu rời. Lý do: nút "Tắt cả nhóm" và nút "Về mặc định" là nút gửi mang theo một *ý định*, nên chúng đi kèm toàn bộ chỉnh sửa đang dở thay vì làm mất chúng.
+
+Ý định đọc từ trường `intent`, ngữ pháp đóng: `save`, `reset-all`, `reset:<mã luật>`, `group-on:<nhóm>`, `group-off:<nhóm>`. Bất cứ giá trị nào khác bị từ chối — mã luật và mã nhóm được đối chiếu với danh mục trong mã nguồn, không bao giờ lấy thẳng từ biểu mẫu.
+
+Riêng nút khôi phục mặc định **bỏ qua khâu kiểm tra** ô nhập của chính luật đó, vì giá trị trong ô đang sai mới là lý do người dùng bấm nút. Nút thoát hiểm mà bị chặn bởi thứ nó sinh ra để sửa thì vô dụng.
+
+### Ngưỡng mô tả một lần, dùng cho cả hai việc
+
+`rule-config-schema.ts` khai mỗi ngưỡng một lần với nhãn tiếng Việt, đơn vị, chặn trên và chặn dưới. Lược đồ `zod` **dựng ra từ chính mô tả đó**, nên thông báo lỗi luôn nói đúng khoảng mà mã nguồn thật sự áp:
+
+> Mức giảm tối đa coi là bình thường phải nằm trong khoảng 1 đến 100 %.
+
+Một test đối chiếu danh sách mô tả với `rule-catalog.ts`: ngưỡng có giá trị mặc định mà thiếu mô tả thì không sửa được, mô tả thừa thì sinh ra tham số không luật nào đọc. Cả hai đều là test đỏ.
+
+### Chỉ ghi dòng thật sự đổi
+
+Server Action đọc cấu hình hiện tại, so từng dòng, chỉ ghi dòng khác. Nhờ vậy `RuleConfig.updatedAt` giữ đúng nghĩa "luật này được chỉnh lúc nào" thay vì "ai đó mở màn hình lúc nào" — đây là dấu vết duy nhất của công cụ, vì không có đăng nhập.
+
+### Giá trị bị từ chối vẫn nằm lại trên màn hình
+
+React tự `reset` biểu mẫu sau khi Server Action trả về. Không xử lý gì thì ô nhập sẽ bật về giá trị cũ trong khi thông báo lỗi lại trỏ vào nó — người dùng đọc thấy một ô trông hoàn toàn bình thường. Vì vậy trạng thái trả về mang theo nguyên văn những gì đã gửi, và biểu mẫu dựng lại từ đó.
+
+Biểu mẫu đặt `noValidate`: trình duyệt sẽ chặn trước bằng bong bóng tiếng Anh, che mất thông báo tiếng Việt của công cụ. Thuộc tính `min`/`max` vẫn giữ để bộ tăng giảm và trình đọc màn hình biết khoảng hợp lệ.
+
+### Đọc và ghi đi qua cùng một đường
+
+Màn hình đọc qua chính `loadRuleConfigs()` mà bộ máy luật dùng, và nút khôi phục ghi lại đúng giá trị trong `rule-catalog.ts` mà `prisma/seed.ts` dùng. Nhờ vậy màn hình không thể bất đồng với bộ máy về giá trị đang chạy, cũng không thể bất đồng với seed về thế nào là "mặc định".
 
 ## Bảo mật
 
