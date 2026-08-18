@@ -78,9 +78,12 @@ Ba chỗ kế hoạch mô tả không khớp với mã nguồn khi bắt tay và
 - Thứ tự `Tab`: liên kết "Nhảy tới nội dung" đứng trước, rồi mới tới 5 mục sidebar, mỗi mục đều thấy rõ viền focus
 - Sidebar cố định ở 1920px và 1366px, thu về ngăn kéo ở 1023px trở xuống; thân trang không bao giờ cuộn ngang
 
-## Việc còn treo
+## Việc phát sinh, đã xử lý
 
-- **Test đọc file Excel thật chập chờn.** `excel-reader.test.ts` và `promotion-workbook.test.ts` có lúc vượt `testTimeout` mặc định 5.000 ms khi chạy song song. **Có sẵn từ trước đợt này** — đã kiểm chứng bằng cách stash toàn bộ thay đổi rồi chạy lại trên cây mã sạch, vẫn rớt y hệt. Chạy `npx vitest run --testTimeout=30000` thì 495/495 xanh. Sửa nó là việc của một đợt khác vì đợt này chỉ đụng giao diện
+- **Test đọc file Excel thật chập chờn — đã sửa.** `excel-reader.test.ts` và `promotion-workbook.test.ts` có lúc vượt `testTimeout` mặc định 5.000 ms khi chạy song song. Lỗi **có sẵn từ trước đợt này** — kiểm chứng bằng cách stash toàn bộ thay đổi rồi chạy lại trên cây mã sạch, vẫn rớt y hệt.
+  - Gốc rễ: mỗi test đọc lại và phân tích lại cùng một workbook 3.931 dòng. Đo được `readWorkbook` ~1,7 s, `readBuffered` ~1,25 s, `readStreaming` ~0,12 s trên máy rảnh; tám lượt phân tích chia cho tám test nên khi máy bận là có lượt vượt ngưỡng
+  - Cách sửa: phân tích một lần trong `beforeAll` rồi dùng chung, **không** nâng `testTimeout` chung. Phần nặng chuyển vào hook có ngân sách riêng 60 s, từng test vẫn nằm trong ngưỡng mặc định
+  - Kết quả: tám lượt phân tích còn ba, `tests` giảm từ ~40 s xuống ~22 s, năm lượt chạy liên tiếp bằng timeout mặc định đều 495/495 xanh
 
 ## Định nghĩa hoàn thành
 

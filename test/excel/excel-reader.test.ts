@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import ExcelJS from 'exceljs'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { unwrapCell } from '@/lib/excel/cell-value'
 import {
   hasSpreadsheetSignature,
@@ -92,15 +92,40 @@ describe('readWorkbook - exceljs-written files', () => {
 
 const REAL_FILE = 'promotion.t8.xlsx'
 
+/**
+ * Generous because the work is real, not because it hides anything: measured on
+ * 2026-08-18, one `readWorkbook` of this file costs ~1,7 s and one `readBuffered`
+ * ~1,25 s on an idle machine. The suite runs its files in parallel, so the
+ * default 5 s per-test budget was a coin flip under contention.
+ */
+const REAL_FILE_PARSE_TIMEOUT_MS = 60_000
+
 /** Git-ignored business data: verified when present, skipped on a clean checkout. */
 describe.skipIf(!existsSync(REAL_FILE))('readWorkbook - the real promotion.t8.xlsx', () => {
-  const bytes = async () => new Uint8Array(await readFile(REAL_FILE))
   const cellAt = (sheet: RawSheet, rowNumber: number, column: number) =>
     unwrapCell(sheet.dataRows.find((row) => row.rowNumber === rowNumber)?.cells[column - 1])
 
-  it('keeps every worksheet and the true row numbers', async () => {
-    const result = await readWorkbook(await bytes(), REAL_FILE)
+  /**
+   * Parsed once for the whole block. Every test used to re-read and re-parse
+   * the same 3.931 row workbook - five tests paying for three `readWorkbook`
+   * runs and two `readStreaming`/`readBuffered` pairs between them. The inputs
+   * are identical and nothing below mutates a result, so the only thing the
+   * repetition bought was wall clock and a flaky timeout.
+   */
+  let result: Awaited<ReturnType<typeof readWorkbook>>
+  let streamed: RawSheet[]
+  let buffered: RawSheet[]
 
+  beforeAll(async () => {
+    const input = new Uint8Array(await readFile(REAL_FILE))
+    ;[result, streamed, buffered] = await Promise.all([
+      readWorkbook(input, REAL_FILE),
+      readStreaming(input),
+      readBuffered(input),
+    ])
+  }, REAL_FILE_PARSE_TIMEOUT_MS)
+
+  it('keeps every worksheet and the true row numbers', () => {
     expect(result.sheets.map((sheet) => sheet.name)).toEqual(['Key', 'Giảm phần trăm'])
     expect(result.sheets[0].dataRows).toHaveLength(3929)
     expect(result.sheets[1].dataRows).toHaveLength(2)
@@ -117,25 +142,19 @@ describe.skipIf(!existsSync(REAL_FILE))('readWorkbook - the real promotion.t8.xl
    *   sharedStrings[1782] -> "Quả bóng chuyền trẻ em Kamito Game Ball"
    */
   describe('known exceljs defects', () => {
-    it('buffered loses a shared-formula result of 0 - streaming does not', async () => {
-      const input = await bytes()
-      const [streamed, buffered] = await Promise.all([readStreaming(input), readBuffered(input)])
-
+    it('buffered loses a shared-formula result of 0 - streaming does not', () => {
       expect(cellAt(streamed[0], 51, 9)).toBe(0)
       expect(cellAt(buffered[0], 51, 9)).toBeNull()
     })
 
-    it('streaming mangles a character on a chunk boundary - buffered does not', async () => {
-      const input = await bytes()
-      const [streamed, buffered] = await Promise.all([readStreaming(input), readBuffered(input)])
-
+    it('streaming mangles a character on a chunk boundary - buffered does not', () => {
       expect(cellAt(streamed[0], 801, 3)).toContain('�')
       expect(cellAt(buffered[0], 801, 3)).toBe('Quả bóng chuyền trẻ em Kamito Game Ball')
     })
   })
 
-  it('takes the correct value from each reader', async () => {
-    const { sheets } = await readWorkbook(await bytes(), REAL_FILE)
+  it('takes the correct value from each reader', () => {
+    const { sheets } = result
 
     // The 0 that only streaming reports - 279 such rows drive the headline finding.
     expect(cellAt(sheets[0], 51, 9)).toBe(0)
@@ -143,8 +162,8 @@ describe.skipIf(!existsSync(REAL_FILE))('readWorkbook - the real promotion.t8.xl
     expect(cellAt(sheets[0], 801, 3)).toBe('Quả bóng chuyền trẻ em Kamito Game Ball')
   })
 
-  it('leaves no replacement characters anywhere in the workbook', async () => {
-    const { sheets } = await readWorkbook(await bytes(), REAL_FILE)
+  it('leaves no replacement characters anywhere in the workbook', () => {
+    const { sheets } = result
 
     const damaged = sheets.flatMap((sheet) =>
       sheet.dataRows.flatMap((row) =>

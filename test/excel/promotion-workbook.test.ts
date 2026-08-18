@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import ExcelJS from 'exceljs'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import {
   InvalidWorkbookError,
   readPromotionWorkbook,
@@ -173,13 +173,27 @@ describe('readPromotionWorkbook - files that are not workbooks', () => {
 const REAL_FILE = 'promotion.t8.xlsx'
 const hasRealFile = existsSync(REAL_FILE)
 
+/** Matches `excel-reader.test.ts`: parsing this file is seconds of real work. */
+const REAL_FILE_PARSE_TIMEOUT_MS = 60_000
+
 describe.skipIf(!hasRealFile)('readPromotionWorkbook - the real promotion.t8.xlsx', () => {
-  it('matches the figures the phase was specified against', async () => {
+  /**
+   * Parsed once for the whole block. All three tests read the same file and
+   * none of them mutates the result, so re-parsing per test bought nothing but
+   * wall clock - and pushed each one against the default 5 s budget whenever
+   * the suite ran its files in parallel.
+   */
+  let result: Awaited<ReturnType<typeof readPromotionWorkbook>>
+  let elapsedMs = 0
+
+  beforeAll(async () => {
     const bytes = new Uint8Array(await readFile(REAL_FILE))
     const startedAt = performance.now()
-    const result = await readPromotionWorkbook(bytes, REAL_FILE)
-    const elapsedMs = performance.now() - startedAt
+    result = await readPromotionWorkbook(bytes, REAL_FILE)
+    elapsedMs = performance.now() - startedAt
+  }, REAL_FILE_PARSE_TIMEOUT_MS)
 
+  it('matches the figures the phase was specified against', () => {
     expect(result.sheets.map((sheet) => [sheet.name, sheet.rowCount])).toEqual([
       ['Key', 3929],
       ['Giảm phần trăm', 2],
@@ -197,19 +211,17 @@ describe.skipIf(!hasRealFile)('readPromotionWorkbook - the real promotion.t8.xls
     expect(zeroDiscount?.rows).toHaveLength(279)
 
     // A blow-up guard, not a performance target. Parsing this file takes
-    // 1,1-1,3 s on an idle machine, but this suite runs its files in parallel
-    // and two of them parse the same 3.931 row workbook, so the wall clock here
-    // measures contention as much as code. The budget is set where an accidental
-    // O(n^2) would still trip it while a loaded machine would not.
+    // 1,1-1,3 s on an idle machine; the suite runs its files in parallel, so the
+    // wall clock here still measures contention as much as code. It is now one
+    // parse rather than one of several, but the budget stays where an accidental
+    // O(n^2) would trip it while a loaded machine would not.
     // The real end-to-end figure lives in the phase 05 plan: 2,36 s for
     // read + 31 rules + database write, against an 8 s requirement.
     expect(elapsedMs).toBeLessThan(8000)
   })
 
-  it('reads the first row exactly as the file shows it', async () => {
-    const bytes = new Uint8Array(await readFile(REAL_FILE))
-    const { rows } = await readPromotionWorkbook(bytes, REAL_FILE)
-    const first = rows[0]
+  it('reads the first row exactly as the file shows it', () => {
+    const first = result.rows[0]
 
     expect(first.rowNumber).toBe(2)
     expect(first.sku).toBe('KMAP231728F.L')
@@ -224,9 +236,7 @@ describe.skipIf(!hasRealFile)('readPromotionWorkbook - the real promotion.t8.xls
     expect(first.issues).toEqual({})
   })
 
-  it('finds the Số dư column despite its rich-text header', async () => {
-    const bytes = new Uint8Array(await readFile(REAL_FILE))
-    const { sheets } = await readPromotionWorkbook(bytes, REAL_FILE)
-    expect(sheets[0].mappedColumns.usageLimit).toContain('Số dư')
+  it('finds the Số dư column despite its rich-text header', () => {
+    expect(result.sheets[0].mappedColumns.usageLimit).toContain('Số dư')
   })
 })

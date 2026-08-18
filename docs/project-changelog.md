@@ -34,6 +34,12 @@ Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 - Chương trình sạch làm nhạt đi để chương trình có lỗi nổi lên
 - `docs/images/man-cau-hinh.png` chụp lại theo giao diện mới
 
+### Sửa lỗi
+
+- **Test đọc file Excel thật hết chập chờn.** Hai file `test/excel/excel-reader.test.ts` và `promotion-workbook.test.ts` có lúc vượt `testTimeout` mặc định 5.000 ms khi chạy song song. Nguyên nhân: mỗi test đọc lại và phân tích lại cùng một workbook 3.931 dòng — riêng `readWorkbook` tốn ~1,7 s và `readBuffered` ~1,25 s trên máy rảnh, nên tám lượt phân tích chia cho tám test là chắc chắn có lượt vượt ngưỡng khi máy bận
+- Cách sửa: phân tích **một lần** trong `beforeAll` của từng khối rồi dùng chung. Không nâng `testTimeout` chung — phần việc nặng chuyển vào hook có ngân sách riêng, còn từng test vẫn nằm trong ngưỡng 5.000 ms mặc định
+- Kết quả: tám lượt phân tích còn ba; `tests` giảm từ ~40 s xuống ~22 s. Chạy năm lượt liên tiếp bằng timeout mặc định đều 495/495 xanh. Mọi khẳng định giữ nguyên, gồm 279 dòng giảm 0đ, 154 chương trình và ngưỡng chống phình 8 s
+
 ### Ghi chú
 
 - Màn cấu hình vẫn giữ đúng cấu trúc cũ: một biểu mẫu cho 11 thiết lập chung, một biểu mẫu cho toàn bộ 37 luật. Không tách nhỏ thêm, vì tách ra sẽ đẻ ra chuyện lưu nửa vời
