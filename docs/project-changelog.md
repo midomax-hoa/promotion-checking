@@ -2,6 +2,27 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-19 — Lưu file Excel lên MinIO
+
+### Bối cảnh
+
+File `.xlsx` người dùng tải lên đang ghi thẳng xuống đĩa của máy chủ ứng dụng (`UPLOAD_DIR`, trong Docker là volume `uploads`). File gắn với vòng đời của container: dựng lại volume là mất, và muốn sao lưu phải chạy riêng một script `tar`.
+
+### Thay đổi
+
+- **Thêm nơi lưu MinIO** (kho đối tượng S3), chỉ bật khi `NODE_ENV=production` **và** có `MINIO_ENDPOINT`. Mọi trường hợp khác vẫn ghi xuống `UPLOAD_DIR` như cũ — máy phát triển và bộ kiểm thử khỏi phải dựng MinIO, và `.env` chép từ máy chủ về cũng không đẩy được file thử nghiệm vào bucket thật.
+- **Khoá đối tượng** `{MINIO_PREFIX}/{năm}/{tháng}/{runId}-{tên đã làm sạch}.xlsx`, mặc định prefix là `promotion-checking/uploads`. Có prefix riêng vì bucket dùng chung với dự án khác; chia theo tháng để còn liệt kê được sau vài năm.
+- **Không cần chuyển đổi dữ liệu.** Lần chạy cũ lưu tên phẳng, lần chạy mới lưu khoá có dấu `/`; đọc lại phân biệt bằng chính dấu `/` đó, nên các lần chạy cũ vẫn xuất báo cáo được từ đĩa.
+- **Chặn prefix cả hai chiều**: ghi hay đọc một khoá nằm ngoài prefix của dự án đều bị từ chối, để một dòng `CheckRun` bị sửa tay không với sang được file của dự án bên cạnh trong bucket.
+- `saveUploadedFile()` nay **trả về** định danh thật sự đã dùng; nơi gọi ghi đúng giá trị đó vào `CheckRun.storedFileName` thay vì tự đoán tên.
+- Thêm phụ thuộc `minio` ^8.0.7.
+
+### Quyết định đáng ghi lại
+
+- **`MINIO_PUBLIC_URL` cố tình không đọc.** File chứa giá vốn và giá bán, nên không phát hành liên kết công khai; mọi lượt đọc vẫn đi qua máy chủ, sau lớp kiểm tra phiên đăng nhập.
+- **Cấu hình nửa vời thì báo lỗi**, không lặng lẽ rơi về đĩa. Rơi về đĩa mà không ai biết chỉ lộ ra vào ngày có người đi tìm file trong bucket.
+- **Chưa đụng tới hạn lưu.** `scripts/prune-uploads.sh` và `scripts/backup-uploads.sh` vẫn chỉ làm việc trên volume của máy chủ, chưa dọn và chưa sao lưu file nằm trên MinIO — đã ghi chú trong tài liệu vận hành, để xử lý sau.
+
 ## 2026-08-19 — Thêm đăng nhập
 
 ### Bối cảnh

@@ -26,9 +26,10 @@ export async function runFileCheck(bytes: Uint8Array, fileName: string): Promise
 
   const runId = await saveCheckRun({ workbook, result, catalogSyncedAt, storedFileName: null })
 
-  const storedFileName = buildStoredFileName(runId, fileName)
   try {
-    await saveUploadedFile(storedFileName, bytes)
+    // What comes back is what the storage backend actually used - an object key
+    // with MinIO, the plain name on disk - so that is what the run keeps.
+    const storedFileName = await saveUploadedFile(buildStoredFileName(runId, fileName), bytes)
     await attachStoredFile(runId, storedFileName)
     return { runId, storedFileName }
   } catch (error) {

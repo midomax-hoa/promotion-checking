@@ -342,10 +342,10 @@ byte tải lên
   -> readPromotionWorkbook()     # kiểm chữ ký, đọc mọi sheet, chuẩn hoá dòng
   -> checkWorkbook()             # nạp cache danh mục + RuleConfig, chạy 31 luật
   -> saveCheckRun()              # CheckRun + CheckProgram + Finding, một giao dịch
-  -> saveUploadedFile()          # ghi file gốc xuống UPLOAD_DIR
+  -> saveUploadedFile()          # đẩy file gốc lên MinIO, hoặc ghi xuống UPLOAD_DIR
 ```
 
-**Thứ tự hai bước cuối là cố ý.** Lần chạy được ghi vào CSDL trước, file gốc ghi xuống đĩa sau: một lần chạy không có file vẫn hiện đủ mọi phát hiện trên màn hình, còn một file không có lần chạy thì chẳng hiện được gì. Đĩa hỏng làm mất nút xuất báo cáo, không làm mất kết quả kiểm tra.
+**Thứ tự hai bước cuối là cố ý.** Lần chạy được ghi vào CSDL trước, file gốc lưu sau: một lần chạy không có file vẫn hiện đủ mọi phát hiện trên màn hình, còn một file không có lần chạy thì chẳng hiện được gì. Kho lưu trữ trục trặc làm mất nút xuất báo cáo, không làm mất kết quả kiểm tra.
 
 `Finding` ghi theo lô 1.000 dòng, hạn giao dịch nâng lên 60 giây thay cho mặc định 5 giây của Prisma — một file 4.000 dòng ghi vài nghìn dòng phát hiện, quá hạn mặc định vì *lớn* chứ không phải vì *treo*.
 
@@ -376,9 +376,27 @@ Ba điểm phải né:
 
 ### Lưu file gốc
 
-Thư mục lấy từ `UPLOAD_DIR`, mặc định `./.uploads` khi phát triển. Tên lưu là `{runId}-{tên gốc đã làm sạch}.xlsx`, ghi vào `CheckRun.storedFileName`.
+Hai nơi lưu, chọn theo **nơi mã đang chạy** chứ không theo cờ bật/tắt:
 
-Tên file là chuỗi duy nhất trong tính năng này có thể biến thành một đường dẫn tuỳ ý, nên bị chặn hai lớp: lúc ghi, tên gốc bị viết lại chỉ còn `[A-Za-z0-9-]` và ép đuôi `.xlsx`; lúc đọc, đường dẫn giải ra được kiểm lại là còn nằm trong thư mục lưu — kể cả khi giá trị đó lấy từ CSDL.
+| Điều kiện | Nơi lưu | Giá trị ghi vào `CheckRun.storedFileName` |
+|---|---|---|
+| `NODE_ENV=production` **và** `MINIO_ENDPOINT` có giá trị | MinIO (kho đối tượng S3) | Khoá đối tượng: `{prefix}/{năm}/{tháng}/{runId}-{tên đã làm sạch}.xlsx` |
+| Mọi trường hợp còn lại | Đĩa của máy chủ ứng dụng, thư mục `UPLOAD_DIR` (mặc định `./.uploads`) | Tên phẳng: `{runId}-{tên đã làm sạch}.xlsx` |
+
+**MinIO chỉ dùng cho bản chạy thật.** Chạy `next dev`, chạy test hay chạy script thì file luôn ghi xuống thư mục local, kể cả khi `.env` chép từ máy chủ về và điền đủ khoá — người phát triển thử nghiệm không lỡ tay đẩy file vào bucket của bản chạy thật được. Ảnh Docker đặt sẵn `NODE_ENV=production` nên bản triển khai không phải khai thêm gì.
+
+Cấu hình MinIO điền nửa vời thì **báo lỗi** thay vì lặng lẽ rơi về đĩa — đó luôn là cấu hình sai, và im lặng chỉ lộ ra vào ngày có người đi tìm file trong bucket.
+
+`saveUploadedFile()` **trả về** định danh mà nơi lưu thật sự đã dùng, và đó mới là giá trị được ghi vào `CheckRun`. Nơi gọi không tự đoán tên.
+
+Đọc lại thì phân biệt bằng chính giá trị đã lưu: có dấu `/` là khoá đối tượng, không có là tên trên đĩa. An toàn vì tên đã làm sạch chỉ còn `[A-Za-z0-9-]` nên không bao giờ chứa dấu `/`. Nhờ vậy các lần chạy lưu từ trước khi có MinIO **vẫn đọc được từ đĩa**, không cần chuyển đổi dữ liệu.
+
+Định danh này là chuỗi duy nhất trong tính năng có thể biến thành một lượt đọc tuỳ ý, nên bị chặn hai lớp — kể cả khi giá trị lấy từ CSDL:
+
+- **Lúc ghi:** tên gốc bị viết lại chỉ còn `[A-Za-z0-9-]` và ép đuôi `.xlsx`.
+- **Lúc đọc:** đường dẫn trên đĩa phải còn nằm trong `UPLOAD_DIR`; khoá đối tượng phải còn nằm trong prefix của dự án. Bucket dùng chung với dự án khác, nên chặn prefix là để một dòng CSDL bị sửa tay không đọc được file của dự án bên cạnh.
+
+File chứa giá vốn và giá bán, nên **không phát hành liên kết công khai**: `MINIO_PUBLIC_URL` cố tình không được đọc, mọi lượt đọc đi qua máy chủ sau lớp kiểm tra phiên đăng nhập.
 
 File mất (bị dọn theo hạn lưu, hoặc chưa từng ghi được) **không phải lỗi**: màn kết quả thay nút xuất bằng câu "file gốc đã hết hạn lưu, tải lên lại để xuất báo cáo".
 

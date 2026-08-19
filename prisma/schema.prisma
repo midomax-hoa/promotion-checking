@@ -46,7 +46,7 @@ model CheckRun {
   id             String   @id @default(cuid())
   mode           String // "check" | "reconcile"
   fileName       String // original upload name
-  storedFileName String? // name inside UPLOAD_DIR; null = cleaned up by retention
+  storedFileName String? // MinIO object key, or a name inside UPLOAD_DIR; null = not kept
   fileHash       String
   createdAt      DateTime @default(now())
 

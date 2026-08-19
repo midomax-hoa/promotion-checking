@@ -21,7 +21,14 @@ Chép `.env.example` thành `.env` rồi điền. **Không commit `.env`.**
 |---|---|---|
 | `DATABASE_URL` | Có | Chuỗi kết nối PostgreSQL. Ký tự đặc biệt trong mật khẩu phải mã hoá URL — `@` viết thành `%40` |
 | `HARAVAN_API_TOKEN` | Có | Token ứng dụng riêng của Haravan. **Chỉ dùng ở phía máy chủ**, tuyệt đối không đặt tiền tố `NEXT_PUBLIC_` |
-| `UPLOAD_DIR` | Không | Thư mục giữ file `.xlsx` đã tải lên, để xuất lại báo cáo. Mặc định `.uploads` |
+| `UPLOAD_DIR` | Không | Thư mục giữ file `.xlsx` đã tải lên khi **không** dùng MinIO. Mặc định `.uploads` |
+| `MINIO_ENDPOINT` | Không | Máy chủ MinIO. **Chỉ có tác dụng khi `NODE_ENV=production`** — máy phát triển luôn ghi xuống `UPLOAD_DIR` dù điền đủ khoá |
+| `MINIO_PORT` | Không | Cổng MinIO. Mặc định `9000` |
+| `MINIO_ACCESS_KEY` | Khi có endpoint | Khoá truy cập MinIO |
+| `MINIO_SECRET_KEY` | Khi có endpoint | Khoá bí mật MinIO |
+| `MINIO_BUCKET` | Khi có endpoint | Tên bucket, ví dụ `zma-assets` |
+| `MINIO_USE_SSL` | Không | Chỉ đúng chữ `true` mới bật TLS. Mặc định `false` |
+| `MINIO_PREFIX` | Không | Thư mục con trong bucket. Mặc định `promotion-checking/uploads` |
 | `AUTH_SEED_USERNAME` | Không | Tên đăng nhập của tài khoản đầu tiên. `npm run db:seed` chỉ đọc khi bảng `User` còn rỗng |
 | `AUTH_SEED_EMAIL` | Không | Email của tài khoản đầu tiên |
 | `AUTH_SEED_PASSWORD` | Không | Mật khẩu của tài khoản đầu tiên. Xoá khỏi tệp sau lần đăng nhập đầu |
@@ -33,7 +40,8 @@ Khi triển khai bằng Docker Compose thì chép `.env.production.example` thà
 | `APP_DOMAIN` | Có | Tên miền công bố. Dùng cho cả địa chỉ site của Caddy lẫn `allowedOrigins` của Server Action |
 | `CADDY_TLS` | Không | Cách cấp chứng chỉ TLS — xem mục [Chứng chỉ TLS](#chứng-chỉ-tls). Bỏ trống = Let's Encrypt |
 | `UPLOAD_RETENTION_DAYS` | Không | Số ngày giữ file `.xlsx` đã nạp. Mặc định `90` |
-| `UPLOAD_DIR` | Có | Trong container là `/data/uploads`, khớp với volume trong `docker-compose.yml` |
+| `UPLOAD_DIR` | Có | Trong container là `/data/uploads`, khớp với volume trong `docker-compose.yml`. Khi dùng MinIO thì chỉ còn dùng để đọc lại các lần chạy cũ |
+| `MINIO_*` | Nên có | Xem bảng trên. Điền endpoint thì file tải lên nằm trên MinIO, không phụ thuộc vòng đời container. Ảnh Docker đã đặt sẵn `NODE_ENV=production` nên khỏi khai thêm |
 
 Địa chỉ gốc của API Haravan **không** nằm trong biến môi trường — nó là thiết lập `haravan.api_base` trong CSDL, sửa được trên màn cấu hình. Giá trị nhập vào bị ràng buộc phải là `https` và thuộc tên miền `haravan.com`, để không ai vô tình gửi token sang máy chủ khác.
 
@@ -255,9 +263,9 @@ Những chốt chặn đã có sẵn trong mã:
 |---|---|---|
 | Đồng bộ đầy đủ danh mục | Hằng ngày hoặc trước mỗi đợt import lớn | Màn **Đồng bộ danh mục** → **Đồng bộ lại từ đầu** |
 | Đồng bộ tăng dần | Trước mỗi lần kiểm tra file | Cùng màn, nút còn lại. Nhanh hơn nhiều nhưng không thấy sản phẩm đã bị xoá |
-| Dọn thư mục `UPLOAD_DIR` | Hằng ngày, đặt cron | `sh scripts/prune-uploads.sh`. Số ngày giữ lấy từ `UPLOAD_RETENTION_DAYS` |
+| Dọn thư mục `UPLOAD_DIR` | Hằng ngày, đặt cron | `sh scripts/prune-uploads.sh`. Số ngày giữ lấy từ `UPLOAD_RETENTION_DAYS`. **Chỉ quét volume trên máy chủ, chưa dọn file trên MinIO** |
 | Sao lưu CSDL | Hằng ngày, đặt cron | `sh scripts/backup-db.sh`. Hỏi bên quản trị CSDL trước — có sẵn lịch của họ thì khỏi làm trùng |
-| Sao lưu file Excel đã nạp | Hằng ngày, đặt cron | `sh scripts/backup-uploads.sh`. Kết xuất CSDL **không** bao gồm file này |
+| Sao lưu file Excel đã nạp | Hằng ngày, đặt cron | `sh scripts/backup-uploads.sh`. Kết xuất CSDL **không** bao gồm file này. **Chỉ đóng gói volume trên máy chủ**; dùng MinIO thì sao lưu theo cơ chế của MinIO |
 | Thử phục hồi bản sao lưu | Hằng quý | `sh scripts/restore-db.sh` vào một CSDL rỗng, đối chiếu số dòng |
 
 ## Điều tiết nhịp gọi Haravan

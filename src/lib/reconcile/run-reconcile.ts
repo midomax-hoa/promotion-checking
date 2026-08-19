@@ -106,11 +106,12 @@ export async function runReconcile(
   })
 
   // Only an upload brings new bytes worth keeping; a previous run already has
-  // its own copy on disk and re-saving it would double the retention cost.
+  // its own copy in storage and re-saving it would double the retention cost.
   if (source.kind === 'upload') {
-    const storedFileName = buildStoredFileName(runId, fileName)
     try {
-      await saveUploadedFile(storedFileName, bytes)
+      // What comes back is what the storage backend actually used - an object
+      // key with MinIO, the plain name on disk - so that is what the run keeps.
+      const storedFileName = await saveUploadedFile(buildStoredFileName(runId, fileName), bytes)
       await attachStoredFile(runId, storedFileName)
     } catch (error) {
       // Logged, never thrown: the reconciliation succeeded and must be shown.
