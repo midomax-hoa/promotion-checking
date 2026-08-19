@@ -7,7 +7,7 @@ Dành cho người quản trị hệ thống. Chạy được hai kiểu: bằng
 | | Máy phát triển | Máy chủ triển khai |
 |---|---|---|
 | CSDL | PostgreSQL trong WSL, ngay trên máy cá nhân | PostgreSQL **ở máy chủ khác**, dùng chung với dự án khác |
-| Cấu hình đọc từ | `.env` | `.env.production` |
+| Cấu hình đọc từ | `.env` | `.env` (Dokploy tự sinh từ tab Environment) |
 | Lệnh migration | `npm run db:migrate` | Service `migrate` trong compose, tự chạy |
 | Rủi ro chạy nhầm | Mất dữ liệu thử nghiệm | **Đụng dữ liệu dự án khác** |
 
@@ -33,12 +33,11 @@ Chép `.env.example` thành `.env` rồi điền. **Không commit `.env`.**
 | `AUTH_SEED_EMAIL` | Không | Email của tài khoản đầu tiên |
 | `AUTH_SEED_PASSWORD` | Không | Mật khẩu của tài khoản đầu tiên. Xoá khỏi tệp sau lần đăng nhập đầu |
 
-Khi triển khai bằng Docker Compose thì chép `.env.production.example` thành `.env.production` và điền thêm bốn biến nữa. **Không commit `.env.production`.**
+Khi triển khai thì dùng `.env.production.example` làm danh sách kiểm: dán các biến đó vào tab **Environment** của Dokploy (Dokploy ghi ra `.env` nằm cạnh `docker-compose.yml`), hoặc chép thành `.env` nếu chạy compose bằng tay. **Không commit tệp đã điền.**
 
 | Biến | Bắt buộc | Ý nghĩa |
 |---|---|---|
-| `APP_DOMAIN` | Có | Tên miền công bố. Dùng cho cả địa chỉ site của Caddy lẫn `allowedOrigins` của Server Action |
-| `CADDY_TLS` | Không | Cách cấp chứng chỉ TLS — xem mục [Chứng chỉ TLS](#chứng-chỉ-tls). Bỏ trống = Let's Encrypt |
+| `APP_DOMAIN` | Có | Tên miền công bố. Phải trùng với tên miền khai trong tab Domains của Dokploy. Dùng cho `allowedOrigins` của Server Action — **đổi là phải dựng lại image** |
 | `UPLOAD_RETENTION_DAYS` | Không | Số ngày giữ file `.xlsx` đã nạp. Mặc định `90` |
 | `UPLOAD_DIR` | Có | Trong container là `/data/uploads`, khớp với volume trong `docker-compose.yml`. Khi dùng MinIO thì chỉ còn dùng để đọc lại các lần chạy cũ |
 | `MINIO_*` | Nên có | Xem bảng trên. Điền endpoint thì file tải lên nằm trên MinIO, không phụ thuộc vòng đời container. Ảnh Docker đã đặt sẵn `NODE_ENV=production` nên khỏi khai thêm |
@@ -104,94 +103,111 @@ Lệnh này **ghi đè** mọi tinh chỉnh trên màn cấu hình bằng giá t
 
 Kiểm tra đang trỏ vào CSDL nào trước khi chạy bất cứ lệnh nào đụng dữ liệu. Dòng đã bị chú thích bằng `#` trong `.env` là cấu hình đã bỏ, không phải cấu hình đang dùng.
 
-## Triển khai bằng Docker Compose
+## Triển khai bằng Dokploy
 
-Ba dịch vụ chạy theo thứ tự: `migrate` (chạy một lần, phải thoát mã 0) → `app` (phải khoẻ) → `caddy`. CSDL **không** nằm trong compose.
+Dokploy chạy `docker-compose.yml` của dự án và tự lo phần proxy: **Traefik của Dokploy** nhận 80/443, cấp chứng chỉ TLS, rồi chuyển tiếp vào container. Dự án **không** tự dựng reverse proxy nữa.
+
+Hai dịch vụ chạy theo thứ tự: `migrate` (chạy một lần, phải thoát mã 0) → `app` (phải khoẻ). CSDL **không** nằm trong compose.
 
 ```
 Internet / mạng nội bộ
         │ 443, 80 → chuyển hướng
         ▼
-     caddy ──3000──▶ app ──┐ chạy sau
-                            └── migrate (một lần)
-                                  │
-                                  ▼ 5432
-                     PostgreSQL ở máy chủ khác
+  Traefik (của Dokploy)
+        │ qua network `dokploy-network`
+        ▼ 3000
+       app ──┐ chạy sau
+              └── migrate (một lần)
+                    │
+                    ▼ 5432
+       PostgreSQL ở máy chủ khác
 ```
+
+`app` chỉ `expose` cổng 3000 trong mạng nội bộ Docker, **không** ánh xạ cổng nào ra máy chủ. Đường vào duy nhất là qua Traefik.
 
 ### Trước khi chạy lần đầu
 
 Xin bên quản trị CSDL: host, cổng, tên CSDL, tài khoản, có bắt buộc SSL không, tài khoản có quyền `CREATE TABLE` để chạy migration không, và **họ đã có lịch sao lưu chưa** — có rồi thì phía ứng dụng khỏi làm trùng.
 
-```bash
-cp .env.production.example .env.production
-# điền APP_DOMAIN, DATABASE_URL, HARAVAN_API_TOKEN
-# và AUTH_SEED_USERNAME / AUTH_SEED_EMAIL / AUTH_SEED_PASSWORD cho tài khoản đầu tiên
-```
+Dựng dịch vụ trong Dokploy theo thứ tự này:
 
-Không đặt `AUTH_SEED_*` thì sau khi khởi động vẫn tạo tài khoản được, bằng cách chạy trong container:
+1. **Tạo service kiểu Compose**, trỏ vào repo này, đường dẫn compose để `docker-compose.yml`.
+2. **Tab Environment** — dán toàn bộ biến trong `.env.production.example` rồi điền giá trị. Bắt buộc có `APP_DOMAIN`, `DATABASE_URL`, `HARAVAN_API_TOKEN`; thêm `AUTH_SEED_USERNAME` / `AUTH_SEED_EMAIL` / `AUTH_SEED_PASSWORD` cho tài khoản đầu tiên.
+3. **Tab Domains** — khai tên miền cho service `app`, cổng `3000`, bật HTTPS. Tên miền ở đây **phải trùng** `APP_DOMAIN` ở bước 2.
+4. **Deploy.**
+
+Bước 2 và 3 phải khớp nhau. Lệch nhau thì trang vẫn mở được, vẫn đăng nhập được, nhưng mọi nút Lưu sẽ báo `Invalid Server Actions request` — xem mục [Nâng cấp](#nâng-cấp).
+
+Không đặt `AUTH_SEED_*` thì sau khi khởi động vẫn tạo tài khoản được, bằng cách chạy trong container (qua Terminal của Dokploy, hoặc SSH vào máy chủ):
 
 ```bash
-docker compose --env-file .env.production exec app npm run user:create
+docker compose exec app npm run user:create
 ```
 
 ### Lệnh thường dùng
 
-Mọi lệnh compose **bắt buộc** kèm `--env-file .env.production`. Compose đọc `env_file:` để truyền biến vào container, nhưng phần thay thế `${...}` trong `docker-compose.yml` lại lấy từ `--env-file` (hoặc từ `.env`, mà `.env` ở đây là cấu hình máy phát triển). Thiếu cờ này thì dừng ở lỗi `thiếu APP_DOMAIN`. Các script npm dưới đây đã kèm sẵn:
+Việc thường ngày làm trên giao diện Dokploy: Deploy, xem Logs, mở Terminal của container. Khi cần gõ tay thì SSH vào máy chủ, `cd` tới thư mục compose của Dokploy (mặc định `/etc/dokploy/compose/<tên-service>/`) rồi:
+
+```bash
+docker compose ps                 # trạng thái các service
+docker compose logs -f app        # nhật ký ứng dụng, Ctrl+C để thoát
+docker compose logs migrate       # kiểm migration + seed chạy đúng chưa
+```
+
+Không cần cờ `--env-file`: Dokploy ghi biến ra `.env` nằm ngay cạnh `docker-compose.yml`, mà `docker compose` tự đọc `.env`.
+
+Chạy stack bằng tay ở nơi khác (ví dụ dựng lại sự cố trên máy cá nhân) thì chép `.env.production.example` thành `.env`, điền giá trị, rồi dùng các script npm:
 
 ```bash
 npm run docker:build        # dựng image
 npm run docker:up           # khởi động, migrate tự chạy trước
-npm run docker:logs         # xem nhật ký, Ctrl+C để thoát
-npm run docker:ps           # xem trạng thái, kiểm cổng ánh xạ ra ngoài
+npm run docker:logs         # xem nhật ký
+npm run docker:ps           # xem trạng thái
 npm run docker:down         # dừng — volume vẫn còn, dữ liệu không mất
 ```
 
-**Kiểm CSDL đang nhắm tới trước khi `up` lần đầu:**
+Ngoài Dokploy thì network `dokploy-network` không tồn tại; xem `docker-compose.override.yml.example` để biết cách tháo ra.
+
+**Kiểm CSDL đang nhắm tới trước khi khởi động lần đầu:**
 
 ```bash
-grep -E "^DATABASE_URL=" .env.production
+grep -E "^DATABASE_URL=" .env
 ```
 
 Neo `^` là bắt buộc: dòng đã chú thích bằng `#` là cấu hình đã bỏ, không phải cấu hình đang dùng.
 
-Xem nhật ký của riêng service `migrate` để chắc migration và seed chạy đúng:
-
-```bash
-docker compose --env-file .env.production logs migrate
-```
-
 ### Nâng cấp
 
-```bash
-git pull
-npm run docker:build && npm run docker:up
-```
+Bấm **Deploy** trong Dokploy; nó tự `git pull`, dựng lại image rồi khởi động lại. Migration mới tự áp qua service `migrate`. Volume `uploads` không bị đụng, dữ liệu còn nguyên.
 
-Migration mới tự áp qua service `migrate`. Volume `uploads` và `caddy-data` không bị đụng, dữ liệu còn nguyên.
+**Đổi `APP_DOMAIN` thì phải dựng lại image**, không chỉ khởi động lại. `allowedOrigins` của Server Action bị nướng vào `server.js` lúc build — đã kiểm chứng bằng cách `grep` trong image. Khởi động lại suông thì nút Lưu ở màn cấu hình sẽ báo `Invalid Server Actions request`: trang vẫn mở, vẫn đăng nhập được, chỉ mỗi thao tác ghi là hỏng, nên lỗi này rất dễ lọt.
 
-**Đổi `APP_DOMAIN` thì phải dựng lại image**, không chỉ `up -d`. `allowedOrigins` của Server Action bị nướng vào `server.js` lúc build — đã kiểm chứng bằng cách `grep` trong image. Chỉ `up -d` thôi thì nút Lưu ở màn cấu hình sẽ báo `Invalid Server Actions request`.
+Đổi tên miền thì đổi đủ **ba chỗ**: tab Domains của Dokploy, biến `APP_DOMAIN`, và một lượt Deploy có dựng lại image.
 
 ### Chứng chỉ TLS
 
-Chọn bằng biến `CADDY_TLS` trong `.env.production`, không sửa `Caddyfile`:
+Traefik của Dokploy lo hết: khai tên miền ở tab Domains, bật HTTPS, Dokploy tự xin Let's Encrypt và tự gia hạn. Dự án không còn tệp cấu hình proxy nào của riêng mình.
 
-| Tình huống | `CADDY_TLS` | Ghi chú |
+Tên miền chỉ phân giải trong mạng nội bộ thì **không** qua được thử thách của Let's Encrypt. Khi đó phải nạp chứng chỉ do bên IT cấp vào Traefik của Dokploy, hoặc dùng thử thách DNS-01 — cả hai đều cấu hình ở phía Dokploy, không phải ở repo này.
+
+Let's Encrypt có **giới hạn số lần cấp mỗi tuần**, nên đừng xoá đi dựng lại dịch vụ nhiều lần liên tiếp khi đang dò lỗi tên miền.
+
+**Ba thiết lập cũ của reverse proxy đã bỏ** — đối chiếu với mặc định của Traefik v3 như sau:
+
+| Thiết lập cũ | Mặc định Traefik v3 | Kết luận |
 |---|---|---|
-| Tên miền công khai, phân giải được từ Internet | để trống | Caddy tự xin Let's Encrypt và tự gia hạn |
-| Tên miền chỉ dùng trong mạng nội bộ | `tls internal` | Caddy dựng CA riêng. **Máy người dùng phải cài chứng chỉ gốc của CA đó**, không thì trình duyệt vẫn báo đỏ. Lấy chứng chỉ gốc: `docker compose --env-file .env.production exec caddy cat /data/caddy/pki/authorities/local/root.crt` |
-| Công ty đã cấp chứng chỉ riêng | `tls /etc/caddy/cert.pem /etc/caddy/key.pem` | Gắn thêm volume chứa file chứng chỉ vào service `caddy`; tự lo việc gia hạn |
+| Chờ ứng dụng trả lời 180 giây | `writeTimeout` mặc định `0` = không giới hạn | Không sao. Lượt kiểm file 4.000 dòng chạy lâu vẫn không bị cắt |
+| Chặn body quá 25 MB | Không giới hạn (middleware `buffering` phải tự bật) | Không sao. Ứng dụng vẫn tự chặn ở 20 MB trong route handler |
+| Nén gzip | Middleware `compress` mặc định tắt | Không sao. Next.js tự nén phản hồi |
 
-Đổi giá trị này chỉ cần `docker compose --env-file .env.production up -d caddy`, khỏi dựng lại image.
-
-**Không xoá volume `caddy-data`.** Nó chứa chứng chỉ TLS; Let's Encrypt có giới hạn số lần cấp mỗi tuần.
+Chỗ **cần để mắt**: `readTimeout` của Traefik v3 mặc định **60 giây**, tính cho toàn bộ thời gian đọc request kể cả body. File 20 MB tải qua đường truyền chậm hơn ~2,7 Mbps sẽ bị cắt giữa chừng. Trong mạng nội bộ thì dư sức; nếu người dùng nạp file qua đường truyền yếu mà gặp lỗi đứt quãng thì nâng `readTimeout` trong cấu hình Traefik của Dokploy.
 
 ### Kiểm tra sau khi triển khai
 
 ```bash
-docker compose --env-file .env.production ps          # chỉ caddy có ánh xạ cổng ra ngoài
-docker compose --env-file .env.production exec app whoami   # → nextjs
-docker compose --env-file .env.production exec app date     # → giờ Việt Nam (+07)
+docker compose ps                    # không service nào ánh xạ cổng ra máy chủ
+docker compose exec app whoami       # → nextjs
+docker compose exec app date         # → giờ Việt Nam (+07)
 curl -sS https://$APP_DOMAIN/api/health                # → {"status":"ok","database":"up"}
 curl -sS -o /dev/null -w '%{http_code} %{redirect_url}
 ' https://$APP_DOMAIN/
@@ -204,7 +220,7 @@ Rồi đăng nhập và chạy hết luồng qua tên miền thật: đồng b�
 
 ## Sao lưu và phục hồi
 
-Bốn script trong `scripts/`, đều đọc `.env.production` và bỏ qua dòng đã chú thích.
+Bốn script trong `scripts/`, đều đọc `.env` và bỏ qua dòng đã chú thích. Trỏ sang tệp khác bằng biến `ENV_FILE`.
 
 ```bash
 sh scripts/backup-db.sh                       # pg_dump → backups/*.dump
@@ -286,7 +302,7 @@ Rồi mở lần lượt: **Đồng bộ danh mục** (số sản phẩm khớp 
 
 ## Giới hạn đã biết
 
-- Chưa có xác thực người dùng. HTTPS chỉ bảo vệ đường truyền, không bảo vệ quyền truy cập — muốn mở ra ngoài mạng nội bộ thì phải thêm lớp xác thực trước (`basic_auth` của Caddy là mức tối thiểu, tốt hơn là nối SSO công ty).
+- Chưa có xác thực người dùng. HTTPS chỉ bảo vệ đường truyền, không bảo vệ quyền truy cập — muốn mở ra ngoài mạng nội bộ thì phải thêm lớp xác thực trước (middleware `basicAuth` của Traefik là mức tối thiểu, tốt hơn là nối SSO công ty).
 - Trang lịch sử hiện 100 lần chạy gần nhất, chưa phân trang.
 - `GET /com/promotions.json` không lọc được phía máy chủ, nên mỗi lần đối soát đều kéo toàn bộ chương trình khuyến mãi của cửa hàng về rồi lọc trong bộ nhớ. Cửa hàng tích luỹ nhiều năm sẽ phải xem lại điểm này.
 - Ngân sách 30 giây cho 3.000 sản phẩm chưa kiểm chứng được — cửa hàng dev chỉ có 74 sản phẩm.

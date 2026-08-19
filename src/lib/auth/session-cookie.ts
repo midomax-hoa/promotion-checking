@@ -26,7 +26,7 @@ export function sessionCookieAttributes(expires?: Date): SessionCookieAttributes
   return {
     httpOnly: true,
     sameSite: 'lax',
-    // Deployment terminates TLS at Caddy, so production is always https.
+    // Deployment terminates TLS at the reverse proxy, so production is always https.
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     ...(expires ? { expires } : {}),

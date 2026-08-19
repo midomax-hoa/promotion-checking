@@ -2,21 +2,28 @@
 # shared server and is reached through DATABASE_URL only. Nothing in this file
 # may create, drop or own it.
 #
-# Startup order: migrate (runs once, must exit 0) -> app (must go healthy) -> caddy.
+# Startup order: migrate (runs once, must exit 0) -> app (must go healthy).
 #
-# ALWAYS pass --env-file .env.production. Compose reads `env_file:` for the
-# container, but `${...}` substitution below comes from --env-file (or a plain
-# `.env`, which here holds the developer machine settings instead). Without the
-# flag the build stops at "thiếu APP_DOMAIN". The npm scripts already pass it.
+# TLS and the public domain are handled by Dokploy's Traefik, not by this file.
+# Declare the domain in Dokploy (Domains tab); Dokploy injects the Traefik
+# labels itself. All this file has to do is join `dokploy-network` so Traefik
+# can reach the app, and never publish a port to the host.
+#
+# Environment: Dokploy writes the variables from its Environment tab into a
+# `.env` file beside this compose file, which serves both the `env_file:`
+# directives and the `${...}` substitutions below. Running the stack by hand
+# needs the same `.env` present - `docker compose` picks it up automatically,
+# so no --env-file flag is involved. `.env.production.example` lists every
+# variable that has to be filled in.
 
 services:
   migrate:
     build:
       context: .
       target: migrator
-    env_file: .env.production
+    env_file: .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:?thiếu DATABASE_URL - chép .env.production.example thành .env.production}
+      DATABASE_URL: ${DATABASE_URL:?thiếu DATABASE_URL - xem .env.production.example}
     restart: "no"
     logging: &log-opts
       driver: json-file
@@ -30,7 +37,7 @@ services:
       target: runner
       args:
         ALLOWED_ORIGINS: ${APP_DOMAIN:?thiếu APP_DOMAIN}
-    env_file: .env.production
+    env_file: .env
     environment:
       # Points at the volume below, not at the working directory.
       UPLOAD_DIR: /data/uploads
@@ -38,7 +45,12 @@ services:
       # already matches, and it makes the mismatch visible if it does not.
       ALLOWED_ORIGINS: ${APP_DOMAIN}
     expose:
-      - "3000" # compose network only - deliberately not published to the host
+      - "3000" # reached by Traefik over dokploy-network - never published to the host
+    networks:
+      # `default` keeps the compose-internal network; `dokploy-network` is what
+      # Dokploy's Traefik is attached to. Dropping either one breaks routing.
+      - default
+      - dokploy-network
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -53,33 +65,12 @@ services:
     restart: unless-stopped
     logging: *log-opts
 
-  caddy:
-    image: caddy:2-alpine
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:?thiếu APP_DOMAIN}
-      # Empty = Let's Encrypt automatically. "tls internal" = Caddy's own CA.
-      # "tls /etc/caddy/cert.pem /etc/caddy/key.pem" = certificate supplied by IT.
-      CADDY_TLS: ${CADDY_TLS-}
-      TZ: Asia/Ho_Chi_Minh
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data # TLS certificates - losing this volume means re-issuing them
-      - caddy-config:/config
-    depends_on:
-      app:
-        condition: service_healthy
-    restart: unless-stopped
-    logging: *log-opts
-
   # Off by default. Run on demand:
   #   docker compose --profile tools run --rm dbtools "pg_dump ..."
   dbtools:
     image: postgres:18-alpine
     profiles: ["tools"]
-    env_file: .env.production
+    env_file: .env
     environment:
       TZ: Asia/Ho_Chi_Minh
     volumes:
@@ -90,7 +81,10 @@ services:
     entrypoint: ["sh", "-c"]
     command: ["echo 'dùng: docker compose --profile tools run --rm dbtools \"pg_dump ...\"'"]
 
+networks:
+  # Created by Dokploy when it installs Traefik - this stack only joins it.
+  dokploy-network:
+    external: true
+
 volumes:
   uploads:
-  caddy-data:
-  caddy-config:

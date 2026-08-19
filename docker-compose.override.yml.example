@@ -2,23 +2,26 @@
 # Compose picks the override up automatically; it is gitignored, so local
 # tweaks never travel to another server.
 #
+# Not used by a Dokploy deployment - Dokploy composes the file itself. This is
+# for running the stack by hand, usually to reproduce a problem locally.
+#
 # Everything below is commented out on purpose - uncomment only what you need.
 
 services:
   # app:
-  #   # Reach the app directly, bypassing Caddy. Useful when debugging a TLS or
-  #   # proxy problem: if it works on :3000 but not on :443, the fault is Caddy's.
-  #   # Remove again afterwards - the production stack publishes Caddy only.
+  #   # Reach the app directly. Useful when a request works on :3000 but not
+  #   # through the published domain: that narrows the fault down to the proxy
+  #   # rather than the app. Remove again afterwards - the deployed stack
+  #   # publishes nothing to the host.
   #   ports:
   #     - "127.0.0.1:3000:3000"
-
-  # caddy:
-  #   # A domain that only resolves through /etc/hosts cannot pass a Let's
-  #   # Encrypt challenge. Set CADDY_TLS=tls internal in .env.production for
-  #   # that case rather than editing the Caddyfile.
-  #   ports:
-  #     - "8080:80"
-  #     - "8443:443"
+  #
+  #   # Outside Dokploy the `dokploy-network` network does not exist. Listing
+  #   # only `default` here detaches the app from it; if compose still complains
+  #   # about the missing external network, delete the top-level `networks:`
+  #   # block from docker-compose.yml for this machine as well.
+  #   networks:
+  #     - default
 
   # migrate:
   #   # Skip the seed and apply migrations only, when the rule defaults on this

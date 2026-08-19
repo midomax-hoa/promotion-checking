@@ -125,6 +125,8 @@ Xác nhận cảnh báo của kế hoạch là thật: `grep` trong image thấy
 
 Chưa làm được vì cần máy chủ và thông tin CSDL thật: chạy `docker compose up` trên máy chủ Linux, kiểm HTTPS bằng tên miền thật, diễn tập nâng cấp, đặt cron.
 
+> **Đã thay đổi ngày 2026-08-19.** Máy chủ triển khai chạy Dokploy, vốn đã có sẵn Traefik làm reverse proxy. Service `caddy`, tệp `Caddyfile` và biến `CADDY_TLS` mô tả ở trên **đã gỡ bỏ** — hai lớp proxy chồng nhau là thừa. Quy ước `--env-file .env.production` cũng bỏ theo: nay dùng `.env` mà `docker compose` tự đọc, khớp với tệp Dokploy sinh ra từ tab Environment. Xem `docs/van-hanh-va-trien-khai.md`.
+
 ### Giai đoạn 09 — Refactor giao diện & hệ thiết kế (2026-08-18)
 
 - Bảng màu chuyển từ xám hoàn toàn sang xanh dương làm màu thương hiệu; đo WCAG AA cho mọi cặp chữ/nền ở cả hai chế độ, gồm cả bốn màu mức cảnh báo
@@ -145,7 +147,7 @@ Chưa làm được vì cần máy chủ và thông tin CSDL thật: chạy `doc
 | Nhóm B chưa đối chiếu danh mục thật | Store dev không có 3.929 mã hiệu của file mẫu | Đồng bộ cửa hàng thật rồi chạy lại, đo số mã hiệu không tra ra và chất lượng gợi ý của B1 |
 | Biến thể chuyển sản phẩm | Không kiểm chứng được bằng đọc, mà công cụ này chỉ đọc | Xác nhận Haravan có cập nhật `updated_at` của sản phẩm đích hay không |
 | Ảnh chụp cấu hình theo từng lần chạy | Bảng rủi ro của giai đoạn 07 giả định `CheckRun` có lưu, nhưng lược đồ không có cột nào như vậy | Thêm một cột `Json` vào `CheckRun` kèm migration, ghi lại `RuleConfig` lúc chạy. Không có nó thì không giải thích được vì sao hai lần chạy cách nhau một lần chỉnh cấu hình lại ra số khác nhau |
-| Triển khai thật lên máy chủ | Chưa có máy chủ Linux và thông tin CSDL (host, tài khoản, quyền `CREATE TABLE`, bắt buộc SSL hay không) | Xin cấu hình từ bên quản trị CSDL, điền `.env.production`, `npm run docker:up`, kiểm HTTPS qua tên miền thật, diễn tập nâng cấp, đặt cron sao lưu và dọn file |
+| Triển khai thật lên máy chủ | Chưa có máy chủ Linux và thông tin CSDL (host, tài khoản, quyền `CREATE TABLE`, bắt buộc SSL hay không) | Xin cấu hình từ bên quản trị CSDL, dựng service Compose trên Dokploy, điền tab Environment + Domains, Deploy, kiểm HTTPS qua tên miền thật, diễn tập nâng cấp, đặt cron sao lưu và dọn file |
 | Nâng Next 16 | `npm audit` báo 3 lỗi mức cao ở phụ thuộc gián tiếp của Next 15 (`postcss`, `sharp`) | Làm thành một đợt riêng — `npm audit fix --force` sẽ hạ `exceljs` xuống 3.x và nâng Next lên 16, đều là thay đổi phá vỡ |
 
 ## Định nghĩa hoàn thành của cả dự án
