@@ -2,6 +2,26 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-19 — Bỏ Caddy, chuyển sang Dokploy
+
+### Bối cảnh
+
+Máy chủ triển khai chạy Dokploy, mà Dokploy đã có sẵn **Traefik** làm reverse proxy: nhận 80/443, định tuyến theo tên miền, tự xin và gia hạn chứng chỉ TLS. Dự án lại tự dựng thêm một Caddy làm đúng chừng đó việc — hai lớp proxy chồng nhau, thừa một lớp và thêm một chỗ để cấu hình lệch nhau.
+
+### Thay đổi
+
+- **Gỡ service `caddy`**, tệp `Caddyfile`, biến `CADDY_TLS` và hai volume `caddy-data` / `caddy-config`. TLS và tên miền nay khai ở tab Domains của Dokploy.
+- **`app` nối vào network `dokploy-network`** (khai `external: true`) để Traefik với tới. Vẫn chỉ `expose` cổng 3000 trong mạng Docker, **không** ánh xạ cổng nào ra máy chủ. Nhãn Traefik do Dokploy tự thêm, repo không giữ nhãn nào.
+- **Bỏ quy ước `--env-file .env.production`.** Nay dùng `.env` — đúng tệp Dokploy sinh ra từ tab Environment và nằm cạnh `docker-compose.yml`, mà `docker compose` cũng tự đọc. Sửa theo: `env_file:` của cả ba service, các script `docker:*` trong `package.json`, và mặc định `ENV_FILE` trong `scripts/lib-deploy-env.sh` (vẫn ghi đè được bằng biến `ENV_FILE`).
+- `.env.production.example` giữ nguyên vai trò danh sách kiểm các biến cần điền, bỏ `CADDY_TLS`.
+
+### Quyết định đáng ghi lại
+
+- **`APP_DOMAIN` vẫn phải giữ**, dù không còn Caddy để dùng nó làm địa chỉ site. Nó còn nuôi `allowedOrigins` của Server Action (`next.config.ts`), bị nướng vào `server.js` lúc build. Bỏ nhầm thì trang vẫn mở, vẫn đăng nhập được, chỉ mọi nút Lưu là hỏng với `Invalid Server Actions request` — hỏng một phần nên rất dễ lọt. Nay tên miền phải khai khớp ở ba chỗ: tab Domains, biến `APP_DOMAIN`, và một lượt Deploy có dựng lại image.
+- **Ba thiết lập cũ của `Caddyfile` không cần dựng lại bên Traefik.** Đối chiếu với mặc định Traefik v3: chờ ứng dụng trả lời 180 giây → `writeTimeout` mặc định `0` (không giới hạn), nên lượt kiểm file lớn không bị cắt; chặn body 25 MB → Traefik không giới hạn sẵn, nhưng route handler của ứng dụng vẫn tự chặn ở 20 MB; nén gzip → Next.js tự nén.
+- **Một điểm còn phải để mắt:** `readTimeout` của Traefik v3 mặc định **60 giây** cho toàn bộ thời gian đọc request kể cả body. File 20 MB qua đường truyền chậm hơn ~2,7 Mbps sẽ bị cắt. Trong mạng nội bộ thì dư sức, nên chưa chỉnh; gặp lỗi đứt quãng lúc nạp file thì nâng `readTimeout` ở phía Dokploy. **Chưa kiểm chứng trên máy chủ thật** — mới đọc tài liệu Traefik.
+- **Không giữ Caddy làm đường dự phòng.** Nuôi hai đường triển khai là nuôi hai bộ tài liệu, mà chỉ một đường được chạy thật.
+
 ## 2026-08-19 — Lưu file Excel lên MinIO
 
 ### Bối cảnh
