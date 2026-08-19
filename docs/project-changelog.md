@@ -2,6 +2,69 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-19 — Đo lại API chương trình khuyến mãi, chỉnh nhịp kéo dữ liệu
+
+### Bối cảnh
+
+Mỗi lần tải file lên, `checkWorkbook` kéo toàn bộ danh sách chương trình từ Haravan để phục vụ **2 trên 31 luật**: D8 (trùng tên chương trình) và E3 (SKU đang nằm trong chương trình khác đang chạy).
+
+Đợt rà soát ban đầu dựng trên ước lượng shop có ~300.000 chương trình, và kết luận rằng lượt kéo này luôn vượt trần `MAX_PAGES = 200` rồi thất bại. **Kết luận đó sai.** Đo trực tiếp trên shop thật ngày 2026-08-19 (chỉ `GET`, xem [báo cáo kiểm chứng](../plans/reports/verification-260819-0906-haravan-promotions-api-tren-shop-that.md)):
+
+| | Ước lượng ban đầu | Số đo thật |
+|---|---|---|
+| Số chương trình | ~300.000 | **2.290** |
+| Số trang ở `limit=50` | 6.000 | **46** |
+| Chạm trần 200 trang | Có | **Không** |
+| D8, E3 | Không bao giờ chạy | **Vẫn chạy bình thường** |
+
+Nói gọn: lượt kéo vốn vẫn hoạt động, chỉ là chậm hơn cần thiết.
+
+### Phát hiện từ đợt đo
+
+Báo cáo kiểm chứng cũ (2026-08-18) chạy trên store dev có **đúng 1 chương trình**, nên nhiều câu hỏi không thể trả lời và một kết luận bị khái quát quá tay:
+
+- Kết luận "máy chủ bỏ qua mọi bộ lọc" **chỉ đúng với `status`**. `updated_at_min`, `created_at_min`, `since_id` và `ids` đều có tác dụng thật
+- Riêng `query` / `name` / `title` thì đúng là bị bỏ qua, nên **không tìm chương trình theo tên được** — đối soát khớp theo tên nên vẫn buộc phải kéo cả danh sách rồi so trong bộ nhớ. Ở cỡ 2.290 thì việc đó rẻ
+- **`limit` của endpoint chương trình nhận tới 250**, khác endpoint sản phẩm bị ép về 50. Vượt 250 thì máy chủ lặng lẽ trả về 50
+
+### Thay đổi
+
+- Thêm `haravan.promotion_page_size` (mặc định `250`). Trước đây endpoint chương trình dùng chung `haravan.page_size` vốn bị chặn ở 50 vì endpoint sản phẩm. Tách ra: **46 lượt gọi còn 10**, thời gian kéo từ ~15 giây xuống ~3,3 giây
+- Thêm `haravan.promotion_max_pages` (mặc định `200`). `MAX_PAGES` trước đây chôn cứng trong `promotion-fetcher.ts`, trái quy ước cấu hình động. Hằng số cũ giữ lại thành `DEFAULT_MAX_PAGES`, chỉ dùng khi caller không truyền gì
+- Thêm `PromotionPageLimitError`, lớp con của `PromotionFetchError`. Chạm trần thì thông báo nói rõ nguyên nhân và cách xử lý, thay vì câu "dừng ở trang 200" vốn đọc như trục trặc mạng khiến người dùng bấm lại vô ích. Là lớp con nên mọi chỗ đang bắt `PromotionFetchError` — kể cả `SAFE_ERRORS` của tuyến đối soát — vẫn bắt được
+- Thêm `check.fetch_promotions` (mặc định `true`) để tắt hẳn lượt kéo khi cần ưu tiên tốc độ. Tắt thì D8 và E3 được ghi vào `skippedRules`, không bao giờ bị hiểu nhầm thành "không phát hiện vấn đề"
+- `run-check.ts` chỉ gọi API khi qua **hai cửa**: thiết lập trên đang bật, **và** có ít nhất một luật cần danh sách đang bật. Cửa thứ hai vá một lãng phí có sẵn — trước đây tắt D8/E3 trên màn cấu hình thì vẫn kéo dữ liệu về rồi vứt đi
+- Tập mã luật cần danh sách suy ra từ `RULES` (lọc theo `requires`), không liệt kê tay
+- Tách `shouldFetchPromotions` thành hàm thuần và xuất ra, theo lối `buildFindingWhere` / `mergeRuleConfigs`, để kiểm thử hai cửa mà không cần cơ sở dữ liệu hay mạng
+
+### Kết quả
+
+- Lượt kéo danh sách chương trình nhanh gấp ~4,5 lần (46 lượt gọi còn 10)
+- D8 và E3 vẫn chạy như trước, không mất luật nào
+- Danh mục thiết lập chung tăng từ 11 lên 14 mục
+- Không cần di trú lược đồ. `AppSetting` là bảng khoá/giá trị, hàng thiếu rơi về mặc định trong danh mục; chạy `npm run db:seed` sẽ thêm hàng mới mà không đụng giá trị đã tinh chỉnh
+- Thêm 19 test: 6 cho hai cửa lọc, 5 cho trần phân trang động và thông báo lỗi, phần còn lại cho các thiết lập mới
+
+### Chân dung kho chương trình, đo được nhân tiện
+
+| Chỉ số | Giá trị |
+|---|---|
+| Tổng | 2.290 |
+| Đang bật (`status = enabled`) | 2.252 |
+| Kết thúc trong tương lai | **182** |
+| Tên duy nhất | 2.013 |
+| Tên bị trùng (≥2 CTKM cùng tên) | **250** |
+
+Hai điểm cần theo dõi:
+
+- **~2.100 chương trình đã hết hạn nhưng vẫn để `enabled`**, nên `status` gần như vô nghĩa để biết còn hiệu lực; phải dựa vào `ends_at`. Luật E3 vốn đã lọc theo cửa sổ thời gian nên không bị ảnh hưởng
+- **250 tên bị trùng.** Đối soát khớp theo tên, gặp trùng thì trả `ambiguous` kèm mọi ứng viên. Cần chạy thử một lượt đối soát thật để xem màn hình có bị ngập `ambiguous` không
+
+### Chưa xử lý
+
+- Con số 300.000 chủ repo nêu không khớp shop vừa đo (2.290). Có thể là số **dòng** khuyến mãi (2.290 CTKM × hơn trăm SKU mỗi cái), hoặc một shop khác. Cần xác nhận
+- Chưa đo chi phí bộ nhớ thật của `mapPromotions` ở cỡ 2.290 bản ghi
+
 ## 2026-08-18 — Giai đoạn 09: Refactor giao diện và hệ thiết kế
 
 Đợt này chỉ đụng giao diện. Không sửa luật, không sửa truy vấn, không đổi lược đồ; 495 test giữ nguyên và vẫn xanh.
