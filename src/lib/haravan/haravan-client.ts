@@ -27,11 +27,20 @@ export type HaravanClientOptions = {
   limiter: RateLimiter
   fetchImpl?: typeof fetch
   sleep?: (ms: number) => Promise<void>
-  /** Total attempts, retries included. Four failures in a row stop the run. */
+  /** Attempt budget for network failures and 5xx answers, first try included. */
   maxAttempts?: number
+  /**
+   * Separate, far larger budget for 429 answers. A 429 only means "wait", never
+   * "broken", so giving up as fast as on a network error trades a slow success
+   * for a failure. Measured 2026-08-19: `/com/promotions.json` throttles harder
+   * than the shared `X-Haravan-Api-Call-Limit` header advertises, so 429s can
+   * arrive even while the limiter believes the bucket is nearly empty.
+   */
+  rateLimitMaxAttempts?: number
 }
 
 const DEFAULT_MAX_ATTEMPTS = 4
+const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 30
 const DEFAULT_BACKOFF_MS = 500
 const MAX_BACKOFF_MS = 30_000
 
@@ -42,6 +51,7 @@ export class HaravanClient {
   private readonly fetchImpl: typeof fetch
   private readonly sleep: (ms: number) => Promise<void>
   private readonly maxAttempts: number
+  private readonly rateLimitMaxAttempts: number
 
   constructor(options: HaravanClientOptions) {
     if (!options.token.trim()) throw new HaravanTokenMissingError()
@@ -51,6 +61,10 @@ export class HaravanClient {
     this.fetchImpl = options.fetchImpl ?? fetch
     this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)))
     this.maxAttempts = Math.max(1, options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS)
+    this.rateLimitMaxAttempts = Math.max(
+      1,
+      options.rateLimitMaxAttempts ?? DEFAULT_RATE_LIMIT_MAX_ATTEMPTS,
+    )
   }
 
   /** Makes "no error message ever contains the token" a guarantee, not a convention. */
@@ -63,9 +77,15 @@ export class HaravanClient {
     // cannot be bypassed by hand-building `?sku=${sku}` into the path.
     if (path.includes('?')) throw new HaravanRawQueryError(path)
     const url = `${this.baseUrl}${path}${buildQueryString(query, path)}`
-    let lastCause: unknown
 
-    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+    // Two separate budgets: a network failure or 5xx hints at something broken
+    // and gives up after `maxAttempts`; a 429 clears itself once the server
+    // bucket leaks down, so it is retried far more patiently. Mixing both into
+    // one counter is what used to stop a long promotion walk at attempt four.
+    let failures = 0
+    let rateLimitHits = 0
+
+    while (true) {
       await this.limiter.acquire()
 
       let response: Response
@@ -78,11 +98,11 @@ export class HaravanClient {
           },
         })
       } catch (cause) {
-        lastCause = cause
-        if (attempt === this.maxAttempts) {
-          throw new HaravanNetworkError(path, this.maxAttempts, { cause })
+        failures += 1
+        if (failures >= this.maxAttempts) {
+          throw new HaravanNetworkError(path, failures, { cause })
         }
-        await this.sleep(backoffMs(attempt))
+        await this.sleep(backoffMs(failures))
         continue
       }
 
@@ -90,19 +110,34 @@ export class HaravanClient {
       if (response.ok) return (await response.json()) as T
 
       const body = this.redact(await readBodySafely(response))
-      const retryable = response.status === 429 || response.status >= 500
-      if (!retryable) throw new HaravanApiError(response.status, body, path)
 
-      if (attempt === this.maxAttempts) {
-        throw response.status === 429
-          ? new HaravanRateLimitError(response.status, body, path, this.maxAttempts)
-          : new HaravanApiError(response.status, body, path)
+      if (response.status === 429) {
+        rateLimitHits += 1
+        if (rateLimitHits >= this.rateLimitMaxAttempts) {
+          throw new HaravanRateLimitError(response.status, body, path, rateLimitHits)
+        }
+        // `Retry-After` is advice from the same server whose call-limit header
+        // already under-reports this throttle, so it is a floor, not the whole
+        // truth: consecutive 429s escalate the wait even when the header keeps
+        // answering "one second" (or zero), otherwise a sustained throttle
+        // would burn the entire patient budget in under a minute.
+        await this.sleep(
+          Math.max(retryDelayMs(response, rateLimitHits), backoffMs(rateLimitHits)),
+        )
+        continue
       }
-      await this.sleep(retryDelayMs(response, attempt))
-    }
 
-    // Unreachable: the loop always returns or throws.
-    throw new HaravanNetworkError(path, this.maxAttempts, { cause: lastCause })
+      if (response.status >= 500) {
+        failures += 1
+        if (failures >= this.maxAttempts) {
+          throw new HaravanApiError(response.status, body, path)
+        }
+        await this.sleep(backoffMs(failures))
+        continue
+      }
+
+      throw new HaravanApiError(response.status, body, path)
+    }
   }
 }
 
@@ -184,5 +219,6 @@ export async function createHaravanClient(
     fetchImpl: overrides.fetchImpl,
     sleep: overrides.sleep,
     maxAttempts: overrides.maxAttempts ?? config.haravanMaxAttempts,
+    rateLimitMaxAttempts: overrides.rateLimitMaxAttempts ?? config.haravanRateLimitMaxAttempts,
   })
 }

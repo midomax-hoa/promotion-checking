@@ -288,7 +288,9 @@ Những chốt chặn đã có sẵn trong mã:
 
 Haravan giới hạn nhịp gọi. Thiết lập `haravan.requests_per_second` mặc định `3`, đặt dưới mức rỉ 4/giây cho an toàn, và trần cho phép là 4.
 
-Gặp `429` thì công cụ hiểu đó là chuyện giới hạn nhịp chứ không phải dữ liệu sai: nó thử lại tới `haravan.max_attempts` lần rồi mới báo hỏng.
+Gặp `429` thì công cụ hiểu đó là chuyện giới hạn nhịp chứ không phải dữ liệu sai: chờ **ít nhất** theo `Retry-After` (bị chặn liên tục thì tự giãn dài hơn lời khuyên của header) rồi gọi lại, kiên nhẫn tới `haravan.rate_limit_max_attempts` lần (mặc định 30). Lỗi mạng và 5xx mới dùng ngân sách ngắn `haravan.max_attempts` (mặc định 4).
+
+Riêng lượt kéo **danh sách chương trình** (`/com/promotions.json`, phục vụ luật D8/E3 và màn Đối soát) bị Haravan chặn gắt hơn mức 4 lượt/giây công bố (đo 19/8/26: gọi dày hơn ~1100ms là dính 429), nên nó tự nghỉ `haravan.promotion_delay_ms` mili giây giữa hai trang (mặc định 1200). Kéo trọn ~2.300 chương trình mất khoảng một phút — chậm là chủ đích, đổi lấy việc không bao giờ chết giữa chừng vì 429. Muốn nhanh hơn thì hạ số này xuống, chấp nhận thi thoảng phải chờ thử lại.
 
 Đồng bộ chậm bất thường thì nâng `haravan.requests_per_second` lên 4 trước, đừng động vào `haravan.page_size` — Haravan ép cứng tối đa 50 bản ghi mỗi trang, đặt lớn hơn sẽ làm vòng phân trang hiểu nhầm một trang đầy là trang cuối.
 

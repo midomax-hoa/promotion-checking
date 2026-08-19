@@ -20,6 +20,9 @@ export async function runPromotionFetch(
   return fetchAllPromotions(client, {
     pageSize: config.haravanPromotionPageSize,
     maxPages: config.haravanPromotionMaxPages,
+    // Pacing between pages: this endpoint 429s well below the advertised
+    // 4 req/s, so a full pull deliberately trades speed for never failing.
+    delayMs: config.haravanPromotionDelayMs,
     onProgress,
   })
 }
@@ -36,9 +39,19 @@ export async function runPromotionFetch(
  */
 export async function tryFetchPromotionsForRules(): Promise<RawHaravanPromotion[] | null> {
   try {
-    return await runPromotionFetch()
+    // Concurrent checks share one walk. `/api/check` has no running-guard the
+    // way `/api/reconcile` has, so two overlapping uploads used to start two
+    // paced walks whose interleaved requests defeat the per-walk delay and
+    // provoke the very 429s the pacing avoids.
+    inFlightWalk ??= runPromotionFetch().finally(() => {
+      inFlightWalk = null
+    })
+    return await inFlightWalk
   } catch (error) {
     console.error('[check] không kéo được danh sách chương trình, bỏ qua luật D8 và E3', error)
     return null
   }
 }
+
+/** Module-level on purpose: the sharing must span requests within the process. */
+let inFlightWalk: Promise<RawHaravanPromotion[]> | null = null

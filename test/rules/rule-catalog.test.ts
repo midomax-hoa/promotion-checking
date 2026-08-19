@@ -66,15 +66,18 @@ describe('app settings catalog', () => {
   // plus check.fetch_promotions, haravan.promotion_page_size and
   // haravan.promotion_max_pages added 2026-08-19 once the promotion endpoint
   // was measured against the real shop rather than a one-record dev store,
-  // plus the four auth.* settings added 2026-08-19 with the login screen.
-  it('declares 18 settings with unique keys', () => {
-    expect(DEFAULT_APP_SETTINGS).toHaveLength(18)
-    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(18)
+  // plus the four auth.* settings added 2026-08-19 with the login screen,
+  // plus haravan.promotion_delay_ms and haravan.rate_limit_max_attempts added
+  // 2026-08-19 after a full pull died on the endpoint's stricter throttle.
+  it('declares 20 settings with unique keys', () => {
+    expect(DEFAULT_APP_SETTINGS).toHaveLength(20)
+    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(20)
   })
 
   it('ships the promotion fetch switched on', () => {
     // D8 and E3 are the only two rules that look outside the file, and the walk
-    // costs about three seconds at the shipped page size - worth paying.
+    // costs about a minute at the shipped pacing - slow on purpose, and the
+    // switch is the way out for whoever disagrees.
     const fetchPromotions = DEFAULT_APP_SETTINGS.find((s) => s.key === 'check.fetch_promotions')
     expect(fetchPromotions?.value).toBe('true')
   })

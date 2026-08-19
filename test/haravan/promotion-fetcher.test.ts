@@ -126,6 +126,38 @@ describe('fetchAllPromotions', () => {
     expect(error.cause).toBe(cause)
   })
 
+  /**
+   * `/com/promotions.json` throttles harder than the shared limiter knows
+   * (measured 2026-08-19: 350 ms spacing 429s by page 7, 1100 ms runs clean),
+   * so the walk paces itself. The rest goes between pages only: a shop whose
+   * whole list fits in one page must not wait at all.
+   */
+  it('rests between pages but not before the first or after the last', async () => {
+    const slept: number[] = []
+    const sleep = async (ms: number) => {
+      slept.push(ms)
+    }
+
+    await fetchAllPromotions(fakeClient([page(1, 50), page(51, 50), page(101, 3)]), {
+      pageSize: 50,
+      delayMs: 1200,
+      sleep,
+    })
+
+    // Three pages, two gaps.
+    expect(slept).toEqual([1200, 1200])
+  })
+
+  it('skips the rest entirely when the delay is zero', async () => {
+    const sleep = vi.fn(async () => undefined)
+    await fetchAllPromotions(fakeClient([page(1, 50), page(51, 2)]), {
+      pageSize: 50,
+      delayMs: 0,
+      sleep,
+    })
+    expect(sleep).not.toHaveBeenCalled()
+  })
+
   it('never issues anything but a read', async () => {
     const client = fakeClient([page(1, 1)])
     await fetchAllPromotions(client, { pageSize: 50 })

@@ -25,6 +25,8 @@ export const APP_SETTING_KEYS = {
   checkFetchPromotions: 'check.fetch_promotions',
   haravanPromotionPageSize: 'haravan.promotion_page_size',
   haravanPromotionMaxPages: 'haravan.promotion_max_pages',
+  haravanPromotionDelayMs: 'haravan.promotion_delay_ms',
+  haravanRateLimitMaxAttempts: 'haravan.rate_limit_max_attempts',
   authSessionTtlHours: 'auth.session_ttl_hours',
   authMaxFailedAttempts: 'auth.max_failed_attempts',
   authLockoutMinutes: 'auth.lockout_minutes',
@@ -64,7 +66,9 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
     key: APP_SETTING_KEYS.haravanMaxAttempts,
     value: '4',
-    description: 'Gọi Haravan bị lỗi thì thử lại tối đa mấy lần trước khi báo thất bại',
+    description:
+      'Lỗi mạng hoặc lỗi máy chủ (5xx) khi gọi Haravan thì thử lại tối đa mấy lần trước khi báo '
+      + 'thất bại. Riêng bị chặn nhịp (429) dùng ngân sách riêng haravan.rate_limit_max_attempts',
   },
   {
     key: APP_SETTING_KEYS.catalogCursorOverlapMs,
@@ -127,6 +131,22 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
     description:
       'Lấy nhiều nhất chừng này lượt khi tải danh sách chương trình, để công cụ không chạy hoài nếu '
       + 'Haravan trả dữ liệu bất thường. Chạm mức này thì báo lỗi chứ không đưa ra danh sách thiếu',
+  },
+  {
+    key: APP_SETTING_KEYS.haravanPromotionDelayMs,
+    value: '1200',
+    description:
+      'Nghỉ chừng này mili giây giữa hai lượt lấy trang khi tải danh sách chương trình. Haravan '
+      + 'chặn danh sách này gắt hơn mức 4 lượt/giây công bố: đo 19/8/26 thấy gọi dày hơn ~1100ms '
+      + 'là dính chặn (429). Giảm xuống thì nhanh hơn nhưng dễ bị chặn và phải chờ thử lại',
+  },
+  {
+    key: APP_SETTING_KEYS.haravanRateLimitMaxAttempts,
+    value: '30',
+    description:
+      'Bị Haravan chặn nhịp (429) thì chờ rồi gọi lại tối đa bấy nhiêu lần cho một lượt gọi. Bị '
+      + 'chặn nhịp chỉ cần chờ là qua nên để cao cho chắc - chấp nhận chạy chậm chứ không báo lỗi '
+      + 'giữa chừng. Khác haravan.max_attempts là mức dành cho lỗi mạng thật sự',
   },
   {
     key: APP_SETTING_KEYS.authSessionTtlHours,

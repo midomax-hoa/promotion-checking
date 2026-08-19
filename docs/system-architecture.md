@@ -102,7 +102,7 @@ types.ts          → kiểu dữ liệu theo phản hồi thật
 | `HaravanRawQueryError` | Đường dẫn đã tự chứa sẵn `?...` — chặn để không lách được chốt trên |
 | `HaravanTokenMissingError` | Thiếu `HARAVAN_API_TOKEN` |
 
-**Thử lại.** Tối đa `haravan.max_attempts` lượt (mặc định 4). Gặp 429 hoặc 5xx thì chờ theo `Retry-After`, không có thì giãn cách luỹ tiến 500ms → 1s → 2s. Lỗi 4xx khác không thử lại.
+**Thử lại — hai ngân sách tách bạch.** Lỗi mạng và 5xx là dấu hiệu có thứ hỏng thật nên bỏ cuộc sau `haravan.max_attempts` lượt (mặc định 4). Riêng 429 chỉ cần chờ là qua, nên có ngân sách riêng lớn hơn hẳn: `haravan.rate_limit_max_attempts` (mặc định 30), mỗi lần chờ theo mức **lớn hơn** giữa `Retry-After` và giãn cách luỹ tiến 500ms → 1s → 2s… trần 30 giây — `Retry-After` chỉ là sàn, vì chính header của endpoint này đã được đo là báo thiếu mức chặn thật. Lỗi 4xx khác không thử lại. Tách vậy vì đo trên shop thật 19/8/26: `/com/promotions.json` bị chặn nhịp gắt hơn nhiều mức header công bố, gom chung một ngân sách từng làm lượt kéo toàn bộ chương trình chết ở lần chặn thứ tư.
 
 ### Đồng bộ danh mục
 
@@ -292,6 +292,8 @@ Một lần đối soát cũng là một dòng `CheckRun`, phân biệt bằng c
 | `check.fetch_promotions` | `true` | `true` hoặc `false` | Bật thì mỗi lần kiểm tra tải danh sách CTKM về để chạy D8 và E3 |
 | `haravan.promotion_page_size` | 250 | 1…**250** | Endpoint chương trình nhận tới 250, khác endpoint sản phẩm |
 | `haravan.promotion_max_pages` | 200 | 1…10000 | Trần số trang khi kéo danh sách chương trình |
+| `haravan.promotion_delay_ms` | 1200 | 0…60000 | Nghỉ giữa hai trang khi kéo danh sách chương trình — endpoint này chặn nhịp gắt hơn mức header công bố |
+| `haravan.rate_limit_max_attempts` | 30 | 1…100 | Ngân sách thử lại riêng cho 429, tách khỏi `haravan.max_attempts` |
 | `auth.session_ttl_hours` | 24 | 1…8760 | Một lần đăng nhập dùng được bao lâu |
 | `auth.max_failed_attempts` | 5 | 1…100 | Sai mật khẩu mấy lần thì khoá tạm |
 | `auth.lockout_minutes` | 15 | 1…1440 | Khoá tạm bao lâu |

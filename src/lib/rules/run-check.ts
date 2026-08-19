@@ -8,7 +8,10 @@
  * before a single request goes out:
  *
  *   1. `check.fetch_promotions` must be on. It ships on - measured against the
- *      real shop on 2026-08-19, the walk is 10 requests and about three seconds
+ *      real shop on 2026-08-19, the walk is 10 requests and about a minute at
+ *      the paced `haravan.promotion_delay_ms` cadence (slow on purpose: the
+ *      endpoint throttles harder than its headers advertise, and a paced walk
+ *      never dies on a 429)
  *      - but the endpoint cannot be narrowed (`?name=` and `?query=` are
  *      ignored, so there is no way to ask only about the file's programs), and
  *      a shop that grows past the page cap would pay the whole walk on every

@@ -30,7 +30,10 @@ function errorResponse(status: number, body = 'loi', headers: Record<string, str
   return new Response(body, { status, headers })
 }
 
-function makeClient(responses: Response[], overrides: { maxAttempts?: number } = {}) {
+function makeClient(
+  responses: Response[],
+  overrides: { maxAttempts?: number; rateLimitMaxAttempts?: number } = {},
+) {
   const { limiter, headers } = recordingLimiter()
   const slept: number[] = []
   let index = 0
@@ -50,6 +53,7 @@ function makeClient(responses: Response[], overrides: { maxAttempts?: number } =
       slept.push(ms)
     },
     maxAttempts: overrides.maxAttempts ?? 4,
+    rateLimitMaxAttempts: overrides.rateLimitMaxAttempts,
   })
   return { client, fetchImpl, slept, headers }
 }
@@ -118,13 +122,98 @@ describe('HaravanClient', () => {
   })
 
   it('reports a rate limit as a rate limit, not as bad data', async () => {
-    const { client, fetchImpl } = makeClient([errorResponse(429, 'qua nhieu')], { maxAttempts: 4 })
+    const { client, fetchImpl } = makeClient([errorResponse(429, 'qua nhieu')], {
+      rateLimitMaxAttempts: 4,
+    })
 
     const error = await captureError(client.get('/com/products.json'))
 
     expect(error).toBeInstanceOf(HaravanRateLimitError)
     expect(error.message).toContain('giới hạn nhịp')
+    // The error must carry the true count, not a constant.
+    expect((error as HaravanRateLimitError).attempts).toBe(4)
     expect(fetchImpl).toHaveBeenCalledTimes(4)
+  })
+
+  it('escalates header-less 429 waits the same way 5xx backoff does', async () => {
+    const { client, slept } = makeClient([
+      errorResponse(429),
+      errorResponse(429),
+      errorResponse(429),
+      jsonResponse({ ok: true }),
+    ])
+
+    await client.get('/com/promotions.json')
+
+    expect(slept).toEqual([500, 1000, 2000])
+  })
+
+  it('treats Retry-After as a floor, not the whole truth', async () => {
+    // The premise of the paced walk is that this endpoint's own headers
+    // under-report its throttle. A server stuck answering "Retry-After: 1"
+    // (or 0) must not be able to burn the whole patient budget in seconds -
+    // consecutive 429s keep escalating past the header's advice.
+    const { client, slept } = makeClient([
+      errorResponse(429, 'cho', { 'Retry-After': '1' }),
+      errorResponse(429, 'cho', { 'Retry-After': '1' }),
+      errorResponse(429, 'cho', { 'Retry-After': '1' }),
+      errorResponse(429, 'cho', { 'Retry-After': '0' }),
+      jsonResponse({ ok: true }),
+    ])
+
+    await client.get('/com/promotions.json')
+
+    // max(header, escalating backoff): 1s holds until the backoff passes it.
+    expect(slept).toEqual([1000, 1000, 2000, 4000])
+  })
+
+  it('retries a 429 far past the network attempt budget', async () => {
+    // The promotion walk of 2026-08-19 died at attempt four on a throttle that
+    // only needed patience. 429s now spend their own, much larger budget.
+    const { client, fetchImpl } = makeClient(
+      [
+        ...Array.from({ length: 9 }, () => errorResponse(429, 'qua nhieu', { 'Retry-After': '1' })),
+        jsonResponse({ promotions: [{ id: 1 }] }),
+      ],
+      { maxAttempts: 4, rateLimitMaxAttempts: 30 },
+    )
+
+    const result = await client.get<{ promotions: unknown[] }>('/com/promotions.json')
+
+    expect(result.promotions).toHaveLength(1)
+    expect(fetchImpl).toHaveBeenCalledTimes(10)
+  })
+
+  it('keeps 429 and network budgets apart', async () => {
+    // Three 429s must not eat into the network budget of two: the call still
+    // survives a network hiccup after them.
+    const { limiter } = recordingLimiter()
+    const answers = [
+      errorResponse(429),
+      errorResponse(429),
+      errorResponse(429),
+      'network' as const,
+      jsonResponse({ ok: true }),
+    ]
+    let index = 0
+    const fetchImpl = vi.fn(async () => {
+      const next = answers[index]
+      index += 1
+      if (next === 'network') throw new Error('ECONNRESET')
+      return (next as Response).clone()
+    })
+    const client = new HaravanClient({
+      baseUrl: 'https://apis.haravan.com',
+      token: 'token-gia-lap',
+      limiter,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleep: async () => undefined,
+      maxAttempts: 2,
+      rateLimitMaxAttempts: 30,
+    })
+
+    await expect(client.get('/com/promotions.json')).resolves.toEqual({ ok: true })
+    expect(fetchImpl).toHaveBeenCalledTimes(5)
   })
 
   it('retries a 5xx with growing backoff', async () => {

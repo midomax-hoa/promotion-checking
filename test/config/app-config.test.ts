@@ -60,6 +60,29 @@ describe('buildAppConfig', () => {
     ).toBe(250)
   })
 
+  it('paces the promotion walk by default and lets zero switch the rest off', () => {
+    // Measured 2026-08-19: the promotions endpoint 429s below ~1100 ms spacing,
+    // so the shipped default keeps a margin above that.
+    expect(withSettings({}).haravanPromotionDelayMs).toBe(1200)
+    expect(
+      withSettings({ [APP_SETTING_KEYS.haravanPromotionDelayMs]: '0' }).haravanPromotionDelayMs,
+    ).toBe(0)
+    expect(
+      withSettings({ [APP_SETTING_KEYS.haravanPromotionDelayMs]: '-1' }).haravanPromotionDelayMs,
+    ).toBe(1200)
+  })
+
+  it('gives 429 retries their own, far larger budget than network retries', () => {
+    const config = withSettings({})
+    expect(config.haravanRateLimitMaxAttempts).toBe(30)
+    expect(config.haravanRateLimitMaxAttempts).toBeGreaterThan(config.haravanMaxAttempts)
+    // Zero patience would fail every throttled call on its first 429.
+    expect(
+      withSettings({ [APP_SETTING_KEYS.haravanRateLimitMaxAttempts]: '0' })
+        .haravanRateLimitMaxAttempts,
+    ).toBe(30)
+  })
+
   it('reads the promotion fetch switch as a real boolean', () => {
     // Boolean('false') is true, so a coerced parse would switch the fetch back
     // on for every operator who had turned it off.

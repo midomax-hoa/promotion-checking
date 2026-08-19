@@ -69,6 +69,16 @@ const APP_CONFIG_SCHEMA = {
   // endpoint which clamps at 50. The two cannot share one setting.
   haravanPromotionPageSize: [APP_SETTING_KEYS.haravanPromotionPageSize, positiveInt.max(250)],
   haravanPromotionMaxPages: [APP_SETTING_KEYS.haravanPromotionMaxPages, positiveInt.max(10_000)],
+  // Zero is allowed - it means "no pacing, rely on retries alone" - but a
+  // minute between pages is already far past the measured safe cadence.
+  haravanPromotionDelayMs: [APP_SETTING_KEYS.haravanPromotionDelayMs, nonNegativeInt.max(60_000)],
+  // Deliberately far above `haravanMaxAttempts`'s cap of 10: a 429 always
+  // clears after a wait, so patience here buys success, not hangs. At the
+  // 30 s backoff ceiling, 100 attempts still finish within the hour.
+  haravanRateLimitMaxAttempts: [
+    APP_SETTING_KEYS.haravanRateLimitMaxAttempts,
+    positiveInt.max(100),
+  ],
   // A year is already far past "convenient"; anything longer is an unattended
   // session nobody remembers opening.
   authSessionTtlHours: [APP_SETTING_KEYS.authSessionTtlHours, positiveInt.max(24 * 365)],

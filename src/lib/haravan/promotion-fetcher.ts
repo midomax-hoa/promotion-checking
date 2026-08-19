@@ -34,6 +34,16 @@ export type PromotionFetchOptions = {
   pageSize: number
   /** Defaults to `DEFAULT_MAX_PAGES`; production passes the configured value. */
   maxPages?: number
+  /**
+   * Rest between two page requests, in milliseconds. This endpoint throttles
+   * harder than the shared `X-Haravan-Api-Call-Limit` header advertises
+   * (measured 2026-08-19: 350 ms spacing hits 429 by page 7, 1100 ms runs
+   * clean), so the walk paces itself instead of trusting the shared limiter.
+   * Production passes `haravan.promotion_delay_ms`.
+   */
+  delayMs?: number
+  /** Injectable so tests do not wait in real time. */
+  sleep?: (ms: number) => Promise<void>
   onProgress?: (progress: PromotionFetchProgress) => void
 }
 
@@ -73,12 +83,21 @@ export async function fetchAllPromotions(
   client: HaravanClient,
   options: PromotionFetchOptions,
 ): Promise<RawHaravanPromotion[]> {
-  const { pageSize, maxPages = DEFAULT_MAX_PAGES, onProgress } = options
+  const {
+    pageSize,
+    maxPages = DEFAULT_MAX_PAGES,
+    delayMs = 0,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    onProgress,
+  } = options
   const collected: RawHaravanPromotion[] = []
   let effectivePageSize = pageSize
   let page = 1
 
   for (; page <= maxPages; page += 1) {
+    // Between pages, never before the first one: an empty shop must not wait.
+    if (page > 1 && delayMs > 0) await sleep(delayMs)
+
     let batch: RawHaravanPromotion[]
     try {
       const response = await client.get<PromotionListResponse>(PROMOTIONS_PATH, {

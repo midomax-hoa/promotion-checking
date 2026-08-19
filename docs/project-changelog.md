@@ -2,6 +2,29 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-19 — Kéo danh sách chương trình không còn chết vì 429
+
+### Bối cảnh
+
+Một lượt đối soát trên shop thật chết ở trang 10/10 với lỗi 429: `GET /com/promotions.json` bị Haravan chặn nhịp **gắt hơn nhiều** so với mức giỏ 80 rỉ 4 lượt/giây mà header `X-Haravan-Api-Call-Limit` công bố (đo 19/8: gọi cách 350ms là dính 429 từ trang 7, giãn 1.100ms thì sạch — trong khi header vẫn báo giỏ 1/80). Client lại gom 429 chung một ngân sách thử lại với lỗi mạng (`haravan.max_attempts` = 4), nên chỉ cần bị chặn 4 nhịp liên tiếp là cả lượt kéo bỏ cuộc. Đã chốt: chấp nhận kéo toàn bộ chương trình dù chạy lâu, đổi lại lượt kéo không được phép thất bại vì 429 nữa.
+
+### Thay đổi
+
+- **`haravan-client.ts` tách 429 ra ngân sách thử lại riêng.** Lỗi mạng/5xx vẫn bỏ cuộc sau `haravan.max_attempts` (4) vì đó là dấu hiệu có thứ hỏng thật; còn 429 chỉ cần chờ là qua nên được kiên nhẫn tới `haravan.rate_limit_max_attempts` lần (mặc định `30`, trần 100). Mỗi lần chờ lấy mức **lớn hơn** giữa `Retry-After` và giãn cách luỹ tiến 500ms → … → trần 30 giây: header chỉ là sàn, vì tiền đề của cả thay đổi này là header của endpoint báo thiếu mức chặn thật — một server kẹt ở `Retry-After: 1` (hoặc 0) không được phép đốt sạch ngân sách kiên nhẫn trong vài chục giây.
+- **`promotion-fetcher.ts` tự giãn nhịp giữa hai trang** theo `haravan.promotion_delay_ms` (mặc định `1200`, cho phép `0` để tắt), vì bộ điều tiết chung dựa trên header không thấy được mức chặn riêng của endpoint này.
+- **Các lượt kiểm tra file chạy chồng nhau dùng chung một vòng kéo.** `/api/check` không có chốt "đang chạy" như `/api/reconcile`, nên hai lượt upload gối đầu từng mở hai vòng kéo song song — đan xen thành nhịp ~600ms, dưới ngưỡng an toàn ~1100ms, tự gây ra đúng thứ 429 mà nhịp giãn tránh. `tryFetchPromotionsForRules` giờ chia sẻ một vòng kéo đang bay cho mọi lượt chờ.
+- Hai thiết lập mới đều sửa được trên màn Cấu hình; `AppSetting` tăng từ 18 lên **20 khoá**. Mô tả `haravan.max_attempts` sửa lại cho đúng phạm vi mới (chỉ lỗi mạng/5xx).
+
+### Kiểm chứng
+
+- Kéo trọn danh sách trên shop thật bằng đúng mã sản phẩm với nhịp mới: **2.290 CTKM, 2.290 id duy nhất, 10 trang, 0 lần dính 429**, hết 70,5 giây — chậm hơn con số ~3,3 giây từng ước tính ở nhịp 3 lượt/giây, nhưng là cái giá đã chốt để không bao giờ chết giữa chừng.
+- Đường hồi phục 429 ghim bằng unit test (429 → chờ → gọi lại, không ăn vào ngân sách lỗi mạng; `Retry-After` là sàn chứ không phải trần; chuỗi giãn cách 500ms → 1s → 2s được neo đúng từng giá trị). Không ép 429 thật để thử thêm vì phải xả cạn giỏ gọi dùng chung của cả cửa hàng, sẽ làm các ứng dụng khác của shop bị chặn oan.
+
+### Còn để mắt
+
+- Màn **Kiểm tra file** chạy chậm đi trông thấy khi bật `check.fetch_promotions`: vòng kéo ~1 phút diễn ra sau một spinner tĩnh, không có dòng tiến độ và không huỷ được. Đã chốt chấp nhận chạy lâu; muốn nhanh thì tắt công tắc đó (mất luật D8/E3) hoặc hạ `haravan.promotion_delay_ms`.
+- Trong lúc client đang chờ 429 (tối đa 30 giây một nhịp), luồng tiến độ của màn **Đối soát** im lặng — dòng trạng thái đứng yên ở "Đang kéo chương trình: trang N" dù không treo. Kết nối không bị cắt (Traefik `writeTimeout` 0) nên lượt chạy vẫn về đích; nếu thấy cần thì nối một callback báo "đang chờ 429, lần thứ k" qua `createHaravanClient` sau.
+
 ## 2026-08-19 — Bỏ Caddy, chuyển sang Dokploy
 
 ### Bối cảnh
