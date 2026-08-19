@@ -22,6 +22,9 @@ export const APP_SETTING_KEYS = {
   shopTimezoneOffsetMinutes: 'shop.timezone_offset_minutes',
   reportMaxRowsPerPage: 'report.max_rows_per_page',
   moneyToleranceVnd: 'check.money_tolerance_vnd',
+  checkFetchPromotions: 'check.fetch_promotions',
+  haravanPromotionPageSize: 'haravan.promotion_page_size',
+  haravanPromotionMaxPages: 'haravan.promotion_max_pages',
 } as const
 
 /**
@@ -89,6 +92,27 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
     key: APP_SETTING_KEYS.moneyToleranceVnd,
     value: '0.5',
     description: 'Ngưỡng sai số khi so sánh tiền, tránh lệch do dấu phẩy động',
+  },
+  {
+    key: APP_SETTING_KEYS.checkFetchPromotions,
+    value: 'true',
+    description:
+      'true/false - kéo danh sách chương trình từ Haravan khi kiểm tra file, để chạy luật D8 và E3. '
+      + 'Tắt đi thì hai luật đó được ghi là bỏ qua, đổi lại mỗi lượt kiểm tra không phải chờ mạng',
+  },
+  {
+    key: APP_SETTING_KEYS.haravanPromotionPageSize,
+    value: '250',
+    description:
+      'Số chương trình mỗi trang - endpoint chương trình nhận tới 250, khác endpoint sản phẩm bị ép 50. '
+      + 'Đặt quá 250 thì máy chủ lặng lẽ trả về 50',
+  },
+  {
+    key: APP_SETTING_KEYS.haravanPromotionMaxPages,
+    value: '200',
+    description:
+      'Trần số trang khi duyệt danh sách chương trình, chặn vòng lặp vô hạn nếu phân trang trục trặc. '
+      + 'Chạm trần thì lượt kéo báo lỗi thay vì trả về danh sách thiếu',
   },
 ]
 

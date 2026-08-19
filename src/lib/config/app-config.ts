@@ -18,6 +18,16 @@ const positiveInt = z.coerce.number().int().positive()
 const positiveNumber = z.coerce.number().positive()
 /** Zero is a meaningful setting for tolerances and delays, unlike for a page size. */
 const nonNegativeInt = z.coerce.number().int().nonnegative()
+/**
+ * Booleans are stored as text like every other setting, so only these two words
+ * are accepted. Refined rather than coerced: `Boolean('false')` is `true`, which
+ * would turn a switched-off setting into a switched-on one.
+ */
+const booleanText = z
+  .string()
+  .refine((value) => value === 'true' || value === 'false', 'Chỉ nhận true hoặc false.')
+  .transform((value) => value === 'true')
+
 /** A timezone offset is a signed number of minutes; UTC-12:00 to UTC+14:00 covers every real zone. */
 const timezoneOffsetMinutes = z.coerce.number().int().min(-720).max(840)
 
@@ -53,6 +63,12 @@ const APP_CONFIG_SCHEMA = {
   ],
   reportMaxRowsPerPage: [APP_SETTING_KEYS.reportMaxRowsPerPage, positiveInt.max(1000)],
   moneyToleranceVnd: [APP_SETTING_KEYS.moneyToleranceVnd, positiveNumber.max(1000)],
+  checkFetchPromotions: [APP_SETTING_KEYS.checkFetchPromotions, booleanText],
+  // Measured on the real shop 2026-08-19: `/com/promotions.json` honours limit
+  // up to 250 and silently falls back to 50 above it, unlike the products
+  // endpoint which clamps at 50. The two cannot share one setting.
+  haravanPromotionPageSize: [APP_SETTING_KEYS.haravanPromotionPageSize, positiveInt.max(250)],
+  haravanPromotionMaxPages: [APP_SETTING_KEYS.haravanPromotionMaxPages, positiveInt.max(10_000)],
 } as const
 
 type ConfigField = keyof typeof APP_CONFIG_SCHEMA

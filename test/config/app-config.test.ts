@@ -47,6 +47,39 @@ describe('buildAppConfig', () => {
     expect(withSettings({ [APP_SETTING_KEYS.haravanMaxAttempts]: '0' }).haravanMaxAttempts).toBe(4)
   })
 
+  it('keeps the promotion page size apart from the products one', () => {
+    // Two endpoints, two server-side caps: products clamp at 50, promotions
+    // honour 250. Sharing one setting would cost 36 extra requests per walk.
+    expect(withSettings({}).haravanPromotionPageSize).toBe(250)
+    expect(withSettings({}).haravanPageSize).toBe(50)
+    // Above 250 the server answers with 50, so a larger value is refused rather
+    // than passed through to be silently downgraded.
+    expect(
+      withSettings({ [APP_SETTING_KEYS.haravanPromotionPageSize]: '500' })
+        .haravanPromotionPageSize,
+    ).toBe(250)
+  })
+
+  it('reads the promotion fetch switch as a real boolean', () => {
+    // Boolean('false') is true, so a coerced parse would switch the fetch back
+    // on for every operator who had turned it off.
+    expect(withSettings({}).checkFetchPromotions).toBe(true)
+    expect(
+      withSettings({ [APP_SETTING_KEYS.checkFetchPromotions]: 'true' }).checkFetchPromotions,
+    ).toBe(true)
+    expect(
+      withSettings({ [APP_SETTING_KEYS.checkFetchPromotions]: 'false' }).checkFetchPromotions,
+    ).toBe(false)
+  })
+
+  it('falls back to the seed default when the fetch switch holds nonsense', () => {
+    for (const raw of ['', '1', 'yes', 'TRUE']) {
+      expect(
+        withSettings({ [APP_SETTING_KEYS.checkFetchPromotions]: raw }).checkFetchPromotions,
+      ).toBe(true)
+    }
+  })
+
   it('refuses to point the Haravan base at a foreign host', () => {
     const cases = [
       'https://evil.example.com',

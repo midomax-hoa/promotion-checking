@@ -14,7 +14,14 @@ export async function runPromotionFetch(
 ): Promise<RawHaravanPromotion[]> {
   const config = await getAppConfig()
   const client = await createHaravanClient()
-  return fetchAllPromotions(client, { pageSize: config.haravanPageSize, onProgress })
+  // Its own page size, not `haravanPageSize`: that one is capped at 50 for the
+  // products endpoint, while this one honours 250 (measured 2026-08-19). At
+  // 2.290 promotions that is 10 requests instead of 46.
+  return fetchAllPromotions(client, {
+    pageSize: config.haravanPromotionPageSize,
+    maxPages: config.haravanPromotionMaxPages,
+    onProgress,
+  })
 }
 
 /**

@@ -9,14 +9,20 @@
  * The page size is learned from the first page rather than trusted from the
  * settings, the same way `catalog-sync.ts` does it: Haravan clamps `limit` on
  * the products endpoint, and a configured size larger than the real one would
- * make every full page look like the last one and truncate the walk.
+ * make every full page look like the last one and truncate the walk. That
+ * guard earns its keep here: measured on the real shop 2026-08-19, this
+ * endpoint honours `limit` up to 250 but answers a larger one with 50.
  */
 
 import type { HaravanClient } from './haravan-client'
 import { PROMOTIONS_PATH, type PromotionListResponse, type RawHaravanPromotion } from './promotion-types'
 
-/** Safety net against a misconfigured page size turning the loop into an infinite one. */
-const MAX_PAGES = 200
+/**
+ * Fallback for `maxPages`, used only when the caller passes none. The real value
+ * comes from `haravan.promotion_max_pages`; this is the safety net against a
+ * misconfigured page size turning the loop into an infinite one.
+ */
+export const DEFAULT_MAX_PAGES = 200
 
 export type PromotionFetchProgress = {
   page: number
@@ -26,6 +32,8 @@ export type PromotionFetchProgress = {
 
 export type PromotionFetchOptions = {
   pageSize: number
+  /** Defaults to `DEFAULT_MAX_PAGES`; production passes the configured value. */
+  maxPages?: number
   onProgress?: (progress: PromotionFetchProgress) => void
 }
 
@@ -40,16 +48,37 @@ export class PromotionFetchError extends Error {
   }
 }
 
+/**
+ * Thrown when the shop holds more promotions than the cap allows the walk to
+ * reach. A subclass so every existing `instanceof PromotionFetchError` still
+ * catches it, but with a message that names the cause and the way out - the
+ * generic "stopped at page N" reads like a network hiccup and sends people
+ * retrying forever.
+ */
+export class PromotionPageLimitError extends PromotionFetchError {
+  constructor(
+    readonly maxPages: number,
+    readonly pageSize: number,
+  ) {
+    super(maxPages)
+    this.name = 'PromotionPageLimitError'
+    this.message =
+      `Cửa hàng có nhiều chương trình khuyến mãi hơn mức duyệt được: đã đọc hết ` +
+      `${maxPages} trang × ${pageSize} bản ghi mà vẫn chưa tới cuối danh sách. ` +
+      `Vào màn Cấu hình nâng "haravan.promotion_max_pages" lên rồi chạy lại.`
+  }
+}
+
 export async function fetchAllPromotions(
   client: HaravanClient,
   options: PromotionFetchOptions,
 ): Promise<RawHaravanPromotion[]> {
-  const { pageSize, onProgress } = options
+  const { pageSize, maxPages = DEFAULT_MAX_PAGES, onProgress } = options
   const collected: RawHaravanPromotion[] = []
   let effectivePageSize = pageSize
   let page = 1
 
-  for (; page <= MAX_PAGES; page += 1) {
+  for (; page <= maxPages; page += 1) {
     let batch: RawHaravanPromotion[]
     try {
       const response = await client.get<PromotionListResponse>(PROMOTIONS_PATH, {
@@ -74,5 +103,5 @@ export async function fetchAllPromotions(
     if (done) return collected
   }
 
-  throw new PromotionFetchError(MAX_PAGES)
+  throw new PromotionPageLimitError(maxPages, effectivePageSize)
 }

@@ -62,10 +62,27 @@ describe('rule catalog', () => {
 describe('app settings catalog', () => {
   // 7 from phase 01, plus haravan.max_attempts, catalog.cursor_overlap_ms and
   // catalog.sync_shortfall_tolerance added with the catalog sync in phase 02,
-  // plus shop.timezone_offset_minutes added with reconciliation in phase 06.
-  it('declares 11 settings with unique keys', () => {
-    expect(DEFAULT_APP_SETTINGS).toHaveLength(11)
-    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(11)
+  // plus shop.timezone_offset_minutes added with reconciliation in phase 06,
+  // plus check.fetch_promotions, haravan.promotion_page_size and
+  // haravan.promotion_max_pages added 2026-08-19 once the promotion endpoint
+  // was measured against the real shop rather than a one-record dev store.
+  it('declares 14 settings with unique keys', () => {
+    expect(DEFAULT_APP_SETTINGS).toHaveLength(14)
+    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(14)
+  })
+
+  it('ships the promotion fetch switched on', () => {
+    // D8 and E3 are the only two rules that look outside the file, and the walk
+    // costs about three seconds at the shipped page size - worth paying.
+    const fetchPromotions = DEFAULT_APP_SETTINGS.find((s) => s.key === 'check.fetch_promotions')
+    expect(fetchPromotions?.value).toBe('true')
+  })
+
+  it('ships the promotion page size at the measured server maximum', () => {
+    // Measured 2026-08-19: the endpoint honours 250 and silently answers a
+    // larger value with 50, so anything above 250 would quadruple the walk.
+    const pageSize = DEFAULT_APP_SETTINGS.find((s) => s.key === 'haravan.promotion_page_size')
+    expect(pageSize?.value).toBe('250')
   })
 
   it('never hard-codes the shop timezone - it is an editable setting', () => {

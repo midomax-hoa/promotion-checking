@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fetchAllPromotions, PromotionFetchError } from '@/lib/haravan/promotion-fetcher'
+import {
+  DEFAULT_MAX_PAGES,
+  fetchAllPromotions,
+  PromotionFetchError,
+  PromotionPageLimitError,
+} from '@/lib/haravan/promotion-fetcher'
 import { PROMOTIONS_PATH, type RawHaravanPromotion } from '@/lib/haravan/promotion-types'
 import type { HaravanClient } from '@/lib/haravan/haravan-client'
 
@@ -127,5 +132,62 @@ describe('fetchAllPromotions', () => {
     // The client only exposes `get`; this asserts the fetcher never reached for
     // anything else, which is the phase's read-only guarantee in code form.
     expect(Object.keys(client)).toEqual(['get'])
+  })
+})
+
+describe('the page cap', () => {
+  /** A client that never runs out, so the walk can only end at the cap. */
+  const endlessClient = (size: number) =>
+    ({
+      get: vi.fn(async (_path: string, query: { page: number }) =>
+        ({ promotions: page((query.page - 1) * size + 1, size) })),
+    }) as unknown as HaravanClient
+
+  it('stops at the configured cap rather than the built-in one', async () => {
+    const client = endlessClient(5)
+    await expect(
+      fetchAllPromotions(client, { pageSize: 5, maxPages: 3 }),
+    ).rejects.toBeInstanceOf(PromotionPageLimitError)
+    // Three pages attempted, not the 200 the module falls back to.
+    expect((client.get as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(3)
+  })
+
+  it('falls back to the built-in cap when the caller passes none', async () => {
+    const client = endlessClient(1)
+    await expect(fetchAllPromotions(client, { pageSize: 1 })).rejects.toBeInstanceOf(
+      PromotionPageLimitError,
+    )
+    expect((client.get as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(DEFAULT_MAX_PAGES)
+  })
+
+  it('says why it stopped, and how to get past it', async () => {
+    // "stopped at page 200" reads like a network hiccup and sends people
+    // retrying forever; the cause and the way out have to be in the message.
+    const error = await fetchAllPromotions(endlessClient(250), {
+      pageSize: 250,
+      maxPages: 4,
+    }).catch((e) => e)
+
+    expect(error).toBeInstanceOf(PromotionPageLimitError)
+    expect(error.message).toContain('4 trang')
+    expect(error.message).toContain('250')
+    expect(error.message).toContain('haravan.promotion_max_pages')
+  })
+
+  it('is still caught by anything handling PromotionFetchError', async () => {
+    // The reconcile route forwards PromotionFetchError to the screen verbatim;
+    // a cap error that escaped that check would surface as a generic 500.
+    const error = await fetchAllPromotions(endlessClient(2), {
+      pageSize: 2,
+      maxPages: 1,
+    }).catch((e) => e)
+    expect(error).toBeInstanceOf(PromotionFetchError)
+  })
+
+  it('never reports a cap error while pages are still shrinking', async () => {
+    const client = fakeClient([page(1, 10), page(11, 10), page(21, 3)])
+    await expect(fetchAllPromotions(client, { pageSize: 10, maxPages: 3 })).resolves.toHaveLength(
+      23,
+    )
   })
 })
