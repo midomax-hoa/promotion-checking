@@ -35,6 +35,7 @@ src/
     dong-bo/            # màn hình ③ Đồng bộ danh mục
     doi-soat/           # màn hình ⑤ và ⑥ Đối soát sau import
     cau-hinh/           # màn hình ⑦ Cấu hình luật, kèm Server Action
+    dang-nhap/          # màn hình đăng nhập, kèm Server Action đăng nhập/đăng xuất
     api/check/          # nhận file tải lên; tuyến con export trả file báo cáo
     api/sync/route.ts   # chạy đồng bộ, phát tiến trình dạng NDJSON
     api/reconcile/      # chạy đối soát, phát tiến trình dạng NDJSON
@@ -43,8 +44,10 @@ src/
   components/check/     # thành phần của màn kiểm tra, chỉ upload-panel chạy ở trình duyệt
   components/reconcile/ # bảng so ba cột và bộ chạy đối soát
   components/config/    # bảng luật, ô nhập ngưỡng, công tắc theo nhóm, mục lục nhóm
+  middleware.ts         # chốt chặn vòng ngoài: chưa có cookie phiên thì đá về màn đăng nhập
   lib/
     theme.ts            # khoá localStorage và cách quy đổi lựa chọn chủ đề ra lớp CSS
+    auth/               # đăng nhập: băm mật khẩu, phiên, chốt chặn thật
     haravan/            # tầng gọi API và đồng bộ
     catalog/            # cache danh mục và tra cứu SKU
     excel/              # đọc, chuẩn hoá và xuất file khuyến mãi
@@ -247,7 +250,7 @@ Phần trăm trong file **luôn là thập phân** (0.5 = 50%); chỉ chỗ đ�
 
 ## Dữ liệu
 
-Tám bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
+Mười bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.prisma):
 
 | Bảng | Vai trò |
 |---|---|
@@ -258,6 +261,8 @@ Tám bảng, khai đầy đủ ở [`prisma/schema.prisma`](../prisma/schema.pri
 | `ReconcileMatch` | Đối soát: chụp lại hai phía của một cặp (chương trình trong file, CTKM trên Haravan) |
 | `RuleConfig` | 37 luật, bật/tắt và ngưỡng riêng |
 | `AppSetting` | Ngưỡng dùng chung toàn ứng dụng |
+| `User` | Người được phép dùng công cụ: username, email, mật khẩu đã băm, bộ đếm sai mật khẩu |
+| `Session` | Mỗi trình duyệt đang đăng nhập, khoá chính là **băm** của token trong cookie |
 
 `CheckProgram` lưu cả chương trình **không có phát hiện nào**. Đó là lý do nó tồn tại: chương trình sạch không để lại dấu vết trong `Finding`, nên nếu không lưu thì màn kết quả vừa không hiện được số dòng của chương trình, vừa không nói được câu "chương trình này không có vấn đề gì".
 
@@ -269,7 +274,7 @@ Một lần đối soát cũng là một dòng `CheckRun`, phân biệt bằng c
 
 ## Cấu hình
 
-`AppSetting` hiện có 11 khoá. Mọi giá trị đọc qua `getAppConfig()`, kiểm bằng `zod` và có giá trị dự phòng — ô trống hay giá trị vô nghĩa rơi về mặc định chứ không lọt số 0 vào bộ điều tiết nhịp hay bộ phân trang.
+`AppSetting` hiện có 18 khoá. Mọi giá trị đọc qua `getAppConfig()`, kiểm bằng `zod` và có giá trị dự phòng — ô trống hay giá trị vô nghĩa rơi về mặc định chứ không lọt số 0 vào bộ điều tiết nhịp hay bộ phân trang.
 
 | Khoá | Mặc định | Ràng buộc | Ý nghĩa |
 |---|---|---|---|
@@ -284,6 +289,13 @@ Một lần đối soát cũng là một dòng `CheckRun`, phân biệt bằng c
 | `shop.timezone_offset_minutes` | 420 | −720…840 | Lệch múi giờ cửa hàng so với UTC, dùng khi so mốc thời gian với Haravan |
 | `report.max_rows_per_page` | 100 | 1…1000 | Phân trang bảng kết quả |
 | `check.money_tolerance_vnd` | 0.5 | >0…1000 | Ngưỡng sai số khi so tiền |
+| `check.fetch_promotions` | `true` | `true` hoặc `false` | Bật thì mỗi lần kiểm tra tải danh sách CTKM về để chạy D8 và E3 |
+| `haravan.promotion_page_size` | 250 | 1…**250** | Endpoint chương trình nhận tới 250, khác endpoint sản phẩm |
+| `haravan.promotion_max_pages` | 200 | 1…10000 | Trần số trang khi kéo danh sách chương trình |
+| `auth.session_ttl_hours` | 24 | 1…8760 | Một lần đăng nhập dùng được bao lâu |
+| `auth.max_failed_attempts` | 5 | 1…100 | Sai mật khẩu mấy lần thì khoá tạm |
+| `auth.lockout_minutes` | 15 | 1…1440 | Khoá tạm bao lâu |
+| `auth.min_password_length` | 8 | 6…128 | Độ dài tối thiểu khi đặt mật khẩu mới |
 
 `haravan.api_base` bị ràng buộc tên miền có lý do: token được gắn vào mọi lượt gọi tới địa chỉ này, nếu sửa tự do thì ai vào được màn cấu hình là chuyển hướng được token ra máy chủ lạ.
 
@@ -404,8 +416,58 @@ Biểu mẫu đặt `noValidate`: trình duyệt sẽ chặn trước bằng bon
 
 Màn hình đọc qua chính `loadRuleConfigs()` mà bộ máy luật dùng, và nút khôi phục ghi lại đúng giá trị trong `rule-catalog.ts` mà `prisma/seed.ts` dùng. Nhờ vậy màn hình không thể bất đồng với bộ máy về giá trị đang chạy, cũng không thể bất đồng với seed về thế nào là "mặc định".
 
+## Đăng nhập (2026-08-19)
+
+Đăng nhập bằng **username hoặc email** kèm mật khẩu. Không dùng thư viện xác thực nào: nhu cầu chỉ có một màn hình đăng nhập, và `node:crypto` đã đủ để băm mật khẩu.
+
+### Hai lớp, và tại sao phải hai
+
+```
+Trình duyệt ──cookie pc_session──> middleware.ts   chỉ hỏi: có cookie không?
+                                       │ không → 307 về /dang-nhap?tiep=…
+                                       │        (tuyến /api/* nhận 401 thay vì chuyển hướng)
+                                       ↓ có
+                                  Trang · API · Server Action
+                                       └─ requireUser() đối chiếu CSDL thật
+```
+
+`middleware.ts` chạy trên **Edge runtime**, nơi không có Prisma và không có `node:crypto`. Nó chỉ kiểm cookie **có tồn tại hay không**, nên tự nó không phải là chốt chặn. Chốt chặn thật là `requireUser()` / `getCurrentUser()`, gọi trong **từng** trang, **từng** tuyến API và **từng** Server Action. Không được bỏ lớp trong với lý do "middleware lo rồi".
+
+Hệ quả trực tiếp lên mã nguồn: `SESSION_COOKIE_NAME` nằm ở `session-cookie.ts` (thuần, chạy được trên Edge), tách khỏi `session-token.ts` (dùng `node:crypto`). Cho middleware import nhầm file thứ hai thì **toàn bộ ứng dụng hỏng lúc dựng**, mọi tuyến trả 500 — kể cả `/api/health`.
+
+### Mật khẩu
+
+`scrypt` của thư viện chuẩn, tham số `N=16384, r=8, p=1`, khoá dẫn xuất 64 byte, muối ngẫu nhiên 16 byte. Chuỗi lưu xuống CSDL có dạng `scrypt$N$r$p$muối$băm` — **tự mang theo tham số của chính nó**, nên đổi tham số sau này vẫn kiểm được mật khẩu cũ.
+
+Chọn `scrypt` thay vì bcrypt/argon2 vì cả hai đều cần bước biên dịch native, còn cái này Node có sẵn. So sánh bằng `timingSafeEqual`; chuỗi băm hỏng trả về "không khớp" chứ không ném lỗi.
+
+Mật khẩu được chuẩn hoá `NFKC` trước khi băm: cùng một chữ tiếng Việt có nhiều cách mã hoá Unicode, không chuẩn hoá thì gõ đúng vẫn bị từ chối.
+
+### Phiên
+
+Token 32 byte ngẫu nhiên, để trong cookie `pc_session` (`httpOnly`, `sameSite=lax`, `secure` khi chạy production). CSDL lưu **SHA-256 của token**, không lưu token. Đọc trộm được bảng `Session` cũng không dựng lại được cookie dùng được.
+
+Phiên nằm trong CSDL chứ không phải JWT tự hết hạn, vì đăng xuất và xoá tài khoản phải có hiệu lực **ngay**. Mốc hết hạn so trên cột `expiresAt` chứ không tin vào hạn của cookie — hạn cookie chỉ là gợi ý cho trình duyệt.
+
+### Chống dò mật khẩu
+
+Sai mật khẩu liên tiếp quá `auth.max_failed_attempts` thì khoá tạm `auth.lockout_minutes` phút. Bộ đếm nằm trên dòng `User`, không nằm trong bộ nhớ tiến trình — container khởi động lại sau mỗi lần triển khai, để trong bộ nhớ thì kẻ dò được cấp lại lượt miễn phí.
+
+Tài khoản không tồn tại vẫn bị đem đi so với một chuỗi băm thật (dựng một lần từ byte ngẫu nhiên). Không làm vậy thì username lạ trả lời trong một mili giây còn username có thật mất trọn chi phí `scrypt` — đủ để dò ra ai có tài khoản.
+
+Thông báo khi sai chỉ nói "tên đăng nhập hoặc mật khẩu không đúng", không tách hai vế.
+
+### Tài khoản
+
+Không có màn hình quản trị người dùng: cấp tài khoản là việc hiếm, mà làm màn hình cho nó thì kéo theo phải làm phân quyền để quyết ai được mở. Thay vào đó là lệnh chạy trên máy chủ — `npm run user:create`, `user:list`, `user:passwd`, `user:delete`. Xem [`van-hanh-va-trien-khai.md`](van-hanh-va-trien-khai.md).
+
+Tài khoản đầu tiên do `npm run db:seed` tạo từ `AUTH_SEED_*`, và **chỉ khi bảng `User` còn rỗng** — chạy lại seed trên CSDL đang sống không được phép hồi sinh tài khoản đã bị xoá có chủ đích.
+
+Username và email đều lưu **chữ thường**, chuẩn hoá `NFKC`, nên "Hoa" và "hoa" không thể thành hai tài khoản. Đăng nhập nhận cả hai bằng một truy vấn `OR` duy nhất.
+
 ## Bảo mật
 
+- Toàn bộ màn hình và tuyến API đều đòi đăng nhập, trừ `/dang-nhap` và `/api/health`. `/api/health` mở vì healthcheck của container không có cookie — bắt nó đăng nhập thì ứng dụng đang khoẻ vẫn bị báo là chết.
 - `HARAVAN_API_TOKEN` chỉ đọc phía máy chủ, không có tiền tố `NEXT_PUBLIC_`, chỉ đọc ở đúng một chỗ trong `haravan-client.ts`.
 - Token bị thay bằng `***` trong nội dung phản hồi nhúng vào thông báo lỗi — biến lời hứa thành ràng buộc thật, không phải quy ước.
 - `BigInt` chuyển thành chuỗi tại ranh giới server ↔ trình duyệt (`src/lib/serialization/bigint.ts`). `SyncResult` không mang `BigInt` nào.

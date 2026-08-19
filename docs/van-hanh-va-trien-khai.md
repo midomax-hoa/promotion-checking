@@ -22,6 +22,9 @@ Chép `.env.example` thành `.env` rồi điền. **Không commit `.env`.**
 | `DATABASE_URL` | Có | Chuỗi kết nối PostgreSQL. Ký tự đặc biệt trong mật khẩu phải mã hoá URL — `@` viết thành `%40` |
 | `HARAVAN_API_TOKEN` | Có | Token ứng dụng riêng của Haravan. **Chỉ dùng ở phía máy chủ**, tuyệt đối không đặt tiền tố `NEXT_PUBLIC_` |
 | `UPLOAD_DIR` | Không | Thư mục giữ file `.xlsx` đã tải lên, để xuất lại báo cáo. Mặc định `.uploads` |
+| `AUTH_SEED_USERNAME` | Không | Tên đăng nhập của tài khoản đầu tiên. `npm run db:seed` chỉ đọc khi bảng `User` còn rỗng |
+| `AUTH_SEED_EMAIL` | Không | Email của tài khoản đầu tiên |
+| `AUTH_SEED_PASSWORD` | Không | Mật khẩu của tài khoản đầu tiên. Xoá khỏi tệp sau lần đăng nhập đầu |
 
 Khi triển khai bằng Docker Compose thì chép `.env.production.example` thành `.env.production` và điền thêm bốn biến nữa. **Không commit `.env.production`.**
 
@@ -39,12 +42,40 @@ Khi triển khai bằng Docker Compose thì chép `.env.production.example` thà
 ```bash
 npm install
 npx prisma migrate deploy     # dựng lược đồ
-npm run db:seed               # nạp 37 luật và các thiết lập mặc định
+npm run db:seed               # nạp 37 luật, các thiết lập mặc định và tài khoản đầu tiên
+npm run user:create           # nếu chưa đặt AUTH_SEED_* trong .env
 npm run build
 npm start
 ```
 
-`npm run db:seed` chạy lại được nhiều lần: bản ghi đã có giữ nguyên giá trị người vận hành đã chỉnh, chỉ làm mới phần mô tả.
+`npm run db:seed` chạy lại được nhiều lần: bản ghi đã có giữ nguyên giá trị người vận hành đã chỉnh, chỉ làm mới phần mô tả. Tài khoản đầu tiên chỉ được tạo khi bảng `User` còn rỗng, nên chạy lại seed không hồi sinh tài khoản đã xoá.
+
+## Quản lý tài khoản
+
+Công cụ không có màn hình quản trị người dùng. Cấp và thu hồi tài khoản bằng lệnh, chạy trên máy đang trỏ đúng `DATABASE_URL`.
+
+| Lệnh | Việc |
+|---|---|
+| `npm run user:create` | Tạo tài khoản mới |
+| `npm run user:list` | Liệt kê tài khoản, lần đăng nhập cuối, tình trạng khoá tạm |
+| `npm run user:passwd` | Đặt lại mật khẩu |
+| `npm run user:delete` | Xoá tài khoản |
+
+Tên đăng nhập và email nhận qua tham số; mật khẩu **luôn** hỏi trên màn hình và không hiện lại khi gõ — truyền qua tham số dòng lệnh sẽ nằm lại trong lịch sử shell và trong danh sách tiến trình.
+
+```bash
+npm run user:create -- --username hoa --email hoa@example.com
+npm run user:passwd -- --username hoa
+npm run user:delete -- --username hoa      # gõ lại đúng tên để xác nhận
+```
+
+Đặt lại mật khẩu sẽ **đăng xuất mọi phiên đang mở** của tài khoản đó, và gỡ luôn tình trạng khoá tạm nếu đang bị khoá.
+
+Quên mật khẩu thì không có luồng tự phục hồi qua email — người quản trị chạy `npm run user:passwd` là xong. Đây là lựa chọn có chủ ý: gửi email đòi thêm hạ tầng cho một việc hiếm khi xảy ra trong nhóm nhỏ.
+
+### Khi có người nghỉ việc
+
+Chạy `npm run user:delete`. Phiên đăng nhập của tài khoản bị xoá theo (khoá ngoại đặt `onDelete: Cascade`), nên trình duyệt đang mở của người đó mất quyền ngay ở lần tải trang kế tiếp.
 
 ## Đổi giá trị mặc định của luật
 
@@ -87,6 +118,13 @@ Xin bên quản trị CSDL: host, cổng, tên CSDL, tài khoản, có bắt bu�
 ```bash
 cp .env.production.example .env.production
 # điền APP_DOMAIN, DATABASE_URL, HARAVAN_API_TOKEN
+# và AUTH_SEED_USERNAME / AUTH_SEED_EMAIL / AUTH_SEED_PASSWORD cho tài khoản đầu tiên
+```
+
+Không đặt `AUTH_SEED_*` thì sau khi khởi động vẫn tạo tài khoản được, bằng cách chạy trong container:
+
+```bash
+docker compose --env-file .env.production exec app npm run user:create
 ```
 
 ### Lệnh thường dùng
@@ -147,9 +185,14 @@ docker compose --env-file .env.production ps          # chỉ caddy có ánh x�
 docker compose --env-file .env.production exec app whoami   # → nextjs
 docker compose --env-file .env.production exec app date     # → giờ Việt Nam (+07)
 curl -sS https://$APP_DOMAIN/api/health                # → {"status":"ok","database":"up"}
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}
+' https://$APP_DOMAIN/
+                                                      # → 307 …/dang-nhap?tiep=%2F
 ```
 
-Rồi chạy hết luồng qua tên miền thật: đồng bộ danh mục → nạp file mẫu → xuất Excel → **bấm Lưu ở màn cấu hình** (đây là chỗ dễ dính lỗi `allowedOrigins` nhất).
+Lượt kiểm cuối quan trọng: chưa đăng nhập mà mở trang chủ **phải** bị đẩy về `/dang-nhap`. Nếu nó trả về 200 thì lớp chặn không chạy — dừng lại, đừng công bố địa chỉ.
+
+Rồi đăng nhập và chạy hết luồng qua tên miền thật: đồng bộ danh mục → nạp file mẫu → xuất Excel → **bấm Lưu ở màn cấu hình** (đây là chỗ dễ dính lỗi `allowedOrigins` nhất) → **bấm đăng xuất rồi đăng nhập lại**.
 
 ## Sao lưu và phục hồi
 
@@ -185,11 +228,18 @@ Dọn file rồi thì lần chạy cũ **không xuất lại báo cáo được 
 
 ## Bảo mật vận hành
 
-**Công cụ không có đăng nhập.** Đã chốt chạy trong mạng nội bộ. Hệ quả:
+**Công cụ đòi đăng nhập** (từ 2026-08-19). Mọi màn hình và mọi tuyến API đều bị chặn, trừ hai chỗ:
 
-- Ai vào được địa chỉ này đều **sửa được cấu hình luật** và **tải file lên**.
-- Không đặt máy chủ ra Internet công cộng khi chưa bổ sung lớp xác thực.
-- Cột `RuleConfig.updatedAt` là dấu vết duy nhất cho biết cấu hình đổi lúc nào. Nó chỉ nhích khi giá trị thật sự thay đổi, nên mốc thời gian ở đó có nghĩa; bấm Lưu mà không đổi gì thì không ghi gì.
+- `/dang-nhap` — hiển nhiên.
+- `/api/health` — healthcheck của container không mang cookie; bắt nó đăng nhập thì ứng dụng đang khoẻ vẫn bị báo là chết. Tuyến này chỉ trả về tình trạng kết nối CSDL, không lộ dữ liệu nào.
+
+Những điều cần nhớ:
+
+- Ai **đăng nhập được** đều sửa được cấu hình luật và tải file lên. Chưa có phân quyền theo vai trò.
+- Mật khẩu lưu dưới dạng băm `scrypt`, không có chỗ nào đọc lại được mật khẩu gốc — kể cả người quản trị. Mất thì đặt lại, không lấy lại.
+- Sai mật khẩu quá `auth.max_failed_attempts` lần thì tài khoản bị khoá `auth.lockout_minutes` phút. Cả hai sửa được trên màn cấu hình.
+- Một lần đăng nhập hết hạn sau `auth.session_ttl_hours` giờ.
+- Cột `RuleConfig.updatedAt` là dấu vết duy nhất cho biết cấu hình đổi lúc nào. **Nó không ghi lại ai đã đổi** — nhật ký thao tác theo người dùng chưa có. Nó chỉ nhích khi giá trị thật sự thay đổi, nên mốc thời gian ở đó có nghĩa; bấm Lưu mà không đổi gì thì không ghi gì.
 
 Những chốt chặn đã có sẵn trong mã:
 

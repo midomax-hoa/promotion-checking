@@ -2,7 +2,7 @@
 
 Điểm vào nhanh cho người mới đọc kho này. Kiến trúc và lý do thiết kế nằm ở [`system-architecture.md`](system-architecture.md); quy ước viết mã ở [`code-standards.md`](code-standards.md).
 
-Số liệu tính tới 2026-08-18: **146 file** `.ts`/`.tsx` trong `src/` (không tính mã Prisma sinh tự động), **40 file test**, **5 migration**.
+Số liệu tính tới 2026-08-19: **169 file** `.ts`/`.tsx` trong `src/` (không tính mã Prisma sinh tự động), **45 file test**, **6 migration**.
 
 ## Bố cục thư mục
 
@@ -29,6 +29,7 @@ plans/            kế hoạch và báo cáo từng giai đoạn
 | `/doi-soat/{runId}` | `app/doi-soat/[runId]/page.tsx` | Bảng so ba cột |
 | `/dong-bo` | `app/dong-bo/page.tsx` | Đồng bộ danh mục sản phẩm |
 | `/cau-hinh` | `app/cau-hinh/page.tsx` | Sửa 37 luật và thiết lập chung |
+| `/dang-nhap` | `app/dang-nhap/page.tsx` | Đăng nhập bằng username hoặc email — màn duy nhất mở khi chưa đăng nhập |
 
 Tất cả là Server Component, đặt `export const dynamic = 'force-dynamic'`. Thành phần phía trình duyệt chỉ có ở chỗ thật sự cần tương tác.
 
@@ -42,6 +43,8 @@ Tất cả là Server Component, đặt `export const dynamic = 'force-dynamic'`
 | `POST /api/reconcile` | `app/api/reconcile/route.ts` | Đối soát hai lượt, phát tiến trình NDJSON |
 
 Riêng màn cấu hình không có tuyến API — nó dùng **Server Action** trong `app/cau-hinh/actions.ts`.
+
+Mọi màn hình và mọi tuyến ở trên đều đòi đăng nhập; ngoại lệ duy nhất là `GET /api/health` và chính màn `/dang-nhap`. Đăng nhập và đăng xuất cũng là **Server Action**, ở `app/dang-nhap/actions.ts`.
 
 ## Logic nghiệp vụ (`src/lib/`)
 
@@ -78,11 +81,24 @@ Nhóm F nằm riêng ở `reconcile/group-f-reconcile/` vì chúng chạy sau kh
 
 | File | Việc |
 |---|---|
-| `app-settings-catalog.ts` | 11 thiết lập chung, khoá + mặc định + mô tả tiếng Việt |
+| `app-settings-catalog.ts` | 18 thiết lập chung, khoá + mặc định + mô tả tiếng Việt |
 | `app-config.ts` | Đọc `AppSetting`, kiểm bằng `zod`, sai thì rơi về mặc định; kèm `validateSettingValue` cho màn cấu hình |
 | `rule-config-schema.ts` | Mô tả ngưỡng sửa được của từng luật: nhãn, đơn vị, chặn trên chặn dưới — lược đồ `zod` dựng từ chính mô tả đó |
 | `rule-config-form.ts` | Đọc biểu mẫu cấu hình thành các bản cập nhật, hoàn toàn thuần nên test được không cần CSDL |
 | `config-form-state.ts` | Hình dạng dùng chung giữa màn cấu hình và Server Action |
+
+### `auth/` — đăng nhập
+
+| File | Việc |
+|---|---|
+| `password.ts` | Băm và kiểm mật khẩu bằng `scrypt`; chuỗi lưu tự mang tham số của chính nó |
+| `session-cookie.ts` | Tên và thuộc tính cookie. **Thuần, không import `node:crypto`** vì `middleware.ts` chạy trên Edge runtime |
+| `session-token.ts` | Sinh token phiên và băm SHA-256 để tra CSDL. Chỉ chạy phía Node |
+| `session-store.ts` | Tạo, tra, xoá dòng `Session`; dọn phiên hết hạn |
+| `login.ts` | Kiểm username-hoặc-email + mật khẩu, kèm khoá tạm khi dò mật khẩu |
+| `current-user.ts` | `getCurrentUser()` / `requireUser()` — chốt chặn thật, gọi trong từng trang và từng tuyến |
+| `auth-routes.ts` | Đường dẫn mở, và lọc tham số chuyển hướng để không bị đẩy sang site khác |
+| `user-identity.ts` | Chuẩn hoá và kiểm username, email, độ dài mật khẩu. Dùng chung với seed và lệnh `user:*` |
 
 ### `check/`, `db/`
 
@@ -100,6 +116,8 @@ Nhóm F nằm riêng ở `reconcile/group-f-reconcile/` vì chúng chạy sau kh
 | `ReconcileMatch` | Chụp lại cả hai phía của một cặp đối soát |
 | `RuleConfig` | 37 luật: bật/tắt, mức, ngưỡng, `updatedAt` |
 | `AppSetting` | Thiết lập chung dạng khoá–giá trị |
+| `User` | Người được phép dùng công cụ: username, email, mật khẩu đã băm, bộ đếm sai mật khẩu |
+| `Session` | Mỗi trình duyệt đang đăng nhập; khoá chính là **băm** của token trong cookie |
 
 ## Chạy các lệnh
 
@@ -111,6 +129,7 @@ npm test            # vitest run
 npm run build       # next build
 npm run db:migrate  # tạo migration
 npm run db:seed     # nạp mặc định, giữ nguyên tinh chỉnh đã có
+npm run user:create # tạo tài khoản (còn user:list, user:passwd, user:delete)
 ```
 
 Triển khai và vận hành: [`van-hanh-va-trien-khai.md`](van-hanh-va-trien-khai.md). Hướng dẫn cho người dùng cuối: [`huong-dan-su-dung.md`](huong-dan-su-dung.md).

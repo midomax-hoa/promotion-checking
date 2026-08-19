@@ -9,6 +9,23 @@ Công cụ trả lời hai câu hỏi:
 
 Công cụ **chỉ đọc** dữ liệu Haravan, không bao giờ ghi. Chạy nó không làm thay đổi bất cứ chương trình khuyến mãi nào.
 
+## Đăng nhập
+
+Mở địa chỉ công cụ, màn hình đầu tiên là ô đăng nhập.
+
+- Ô trên nhập **tên đăng nhập hoặc email** — cái nào cũng được, viết hoa viết thường không quan trọng.
+- Ô dưới nhập mật khẩu.
+
+Tài khoản do người quản trị cấp, không tự đăng ký được.
+
+**Gõ sai mật khẩu nhiều lần thì tài khoản bị khoá tạm vài phút.** Màn hình sẽ nói rõ còn phải chờ bao lâu. Chờ hết thời gian đó là đăng nhập lại được bình thường, không cần ai mở khoá.
+
+**Quên mật khẩu** thì báo người quản trị đặt lại giúp. Không có chức năng tự lấy lại qua email, và cũng không ai đọc lại được mật khẩu cũ — chỉ đặt được cái mới.
+
+Đăng nhập một lần dùng được cả ngày (mặc định 24 giờ). Hết hạn thì công cụ đưa về màn đăng nhập, làm dở tới đâu vẫn còn nguyên tới đó vì mọi thứ đã lưu trên máy chủ.
+
+Xong việc, nhất là khi dùng máy chung, bấm **nút đăng xuất** ở góc dưới thanh bên trái.
+
 ## Trước khi bắt đầu
 
 Công cụ so mã hiệu (SKU) trong file với danh sách sản phẩm lấy từ Haravan về. Danh sách đó nằm trong bộ nhớ đệm, cần được làm mới định kỳ.
@@ -113,5 +130,7 @@ Không. Mỗi lần chạy đã ghi lại số phát hiện tại thời điểm
 | Rất nhiều SKU báo không tồn tại | Cache đã cũ, hoặc đồng bộ nhầm cửa hàng |
 | Đối soát báo không tìm thấy hàng loạt | Đối soát quá sớm sau khi import — chờ vài phút rồi chạy lại |
 | Không tải được file lên | File không phải `.xlsx`/`.xls`, hoặc vượt dung lượng cho phép |
+| Đang làm thì bị đưa về màn đăng nhập | Hết hạn đăng nhập, hoặc đã bấm đăng xuất ở tab khác — đăng nhập lại là xong, không mất dữ liệu |
+| Báo "tên đăng nhập hoặc mật khẩu không đúng" mà chắc là gõ đúng | Kiểm lại phím CapsLock và bộ gõ tiếng Việt; gõ sai mấy lần nữa sẽ bị khoá tạm |
 
 Trục trặc không nằm trong bảng trên thì báo người phụ trách kỹ thuật, kèm thời điểm và tên file.

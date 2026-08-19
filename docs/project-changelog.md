@@ -2,6 +2,42 @@
 
 Ghi lại các thay đổi đáng kể của dự án. Mới nhất ở trên.
 
+## 2026-08-19 — Thêm đăng nhập
+
+### Bối cảnh
+
+Công cụ chạy không có lớp xác thực nào: ai mở được địa chỉ đều tải file lên và **sửa được cấu hình 37 luật**. Chấp nhận được khi còn nằm trong mạng nội bộ, nhưng cột `RuleConfig.updatedAt` là dấu vết duy nhất còn lại, và nó không nói được ai đã đổi.
+
+### Thay đổi
+
+- **Đăng nhập bằng username hoặc email** kèm mật khẩu, tại `/dang-nhap`. Không thêm thư viện xác thực nào — mật khẩu băm bằng `scrypt` của `node:crypto`.
+- **Hai bảng mới**: `User` và `Session`. Phiên lưu trong CSDL nên đăng xuất và xoá tài khoản có hiệu lực ngay; cột khoá chính của `Session` là **băm** của token trong cookie, không phải token.
+- **Hai lớp chặn**: `middleware.ts` chặn nhanh vòng ngoài (chỉ kiểm cookie có tồn tại), `requireUser()` trong từng trang, từng tuyến API và từng Server Action mới là chốt chặn thật. Mở tự do chỉ còn `/dang-nhap` và `/api/health`.
+- **Khoá tạm khi dò mật khẩu**: sai quá `auth.max_failed_attempts` lần thì khoá `auth.lockout_minutes` phút. Bộ đếm nằm trên dòng `User`, không nằm trong bộ nhớ tiến trình.
+- **Bốn thiết lập mới** trên màn cấu hình: `auth.session_ttl_hours` (24), `auth.max_failed_attempts` (5), `auth.lockout_minutes` (15), `auth.min_password_length` (8).
+- **Lệnh quản lý tài khoản**: `npm run user:create`, `user:list`, `user:passwd`, `user:delete`. Mật khẩu luôn hỏi trên màn hình, không nhận qua tham số dòng lệnh.
+- **Tài khoản đầu tiên** do `npm run db:seed` tạo từ `AUTH_SEED_USERNAME` / `AUTH_SEED_EMAIL` / `AUTH_SEED_PASSWORD`, chỉ khi bảng `User` còn rỗng.
+- Thanh bên hiện tên người đang đăng nhập kèm nút đăng xuất.
+
+### Bẫy đã gặp và cách né
+
+`middleware` chạy trên **Edge runtime**, nơi `node:crypto` không tồn tại. Bản đầu để `SESSION_COOKIE_NAME` chung file với hàm sinh token, thành ra middleware kéo `node:crypto` vào và **mọi tuyến trả 500** — kể cả `/api/health`. Đã tách `session-cookie.ts` (thuần, chạy được trên Edge) khỏi `session-token.ts` (dùng `node:crypto`). Comment trong cả hai file ghi rõ ràng buộc này.
+
+Hai điểm nữa đáng ghi lại:
+
+- Không có tài khoản thì vẫn phải đem mật khẩu đi so với một chuỗi băm thật, nếu không thời gian trả lời sẽ lộ ra username nào có thật.
+- Mật khẩu chuẩn hoá `NFKC` trước khi băm — cùng một chữ tiếng Việt có nhiều cách mã hoá Unicode, không chuẩn hoá thì gõ đúng vẫn bị từ chối.
+
+### Chưa làm, có chủ ý
+
+Phân quyền theo vai trò, đăng nhập bằng Google, tự lấy lại mật khẩu qua email, xác thực hai lớp, nhật ký thao tác theo người dùng. Nhóm dùng công cụ này nhỏ; thêm những thứ đó bây giờ là chi phí không đổi lấy gì.
+
+### Kiểm chứng
+
+Chạy trên máy phát triển với CSDL thật: chưa đăng nhập thì `/` và `/lich-su` trả 307 về `/dang-nhap`, `POST /api/sync` trả 401, `/api/health` vẫn 200. Có cookie phiên hợp lệ thì các màn hình trả 200 và thanh bên hiện tên tài khoản. Cookie bịa ra thì qua được middleware nhưng bị `requireUser()` chặn — đúng như thiết kế hai lớp. Đăng nhập trúng bằng cả username lẫn email, không phân biệt hoa thường; sai 5 lần thì bị khoá 15 phút, mật khẩu đúng trong lúc bị khoá vẫn bị từ chối, hết khoá thì vào được và bộ đếm về 0.
+
+---
+
 ## 2026-08-19 — Đo lại API chương trình khuyến mãi, chỉnh nhịp kéo dữ liệu
 
 ### Bối cảnh
