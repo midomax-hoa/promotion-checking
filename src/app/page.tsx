@@ -2,6 +2,7 @@ import { CatalogFreshnessAlert } from '@/components/check/catalog-freshness-aler
 import { RecentRuns } from '@/components/check/recent-runs'
 import { UploadPanel } from '@/components/check/upload-panel'
 import { PageShell } from '@/components/shell/page-shell'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 1 - upload and check.
@@ -13,7 +14,9 @@ import { PageShell } from '@/components/shell/page-shell'
 
 export const dynamic = 'force-dynamic'
 
-export default function HomePage() {
+export default async function HomePage() {
+  await requireUser()
+
   return (
     <PageShell
       title="Kiểm tra file khuyến mãi"

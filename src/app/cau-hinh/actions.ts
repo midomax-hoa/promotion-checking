@@ -9,6 +9,7 @@
  */
 
 import { revalidatePath } from 'next/cache'
+import { requireUser } from '@/lib/auth/current-user'
 import { prisma } from '@/lib/db/prisma'
 import { findRuleDefinition } from '@/lib/rules/rule-catalog'
 import { loadRuleConfigs } from '@/lib/rules/rule-config-store'
@@ -40,6 +41,10 @@ export async function saveRuleConfigsAction(
   prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
+  // A Server Action is a POST endpoint of its own: reachable without ever
+  // loading the screen that renders it, so it carries its own check.
+  await requireUser()
+
   const parsed = parseRuleForm(formData)
   if (!parsed.ok) {
     return {
@@ -88,6 +93,8 @@ export async function saveAppSettingsAction(
   prev: ConfigFormState,
   formData: FormData,
 ): Promise<ConfigFormState> {
+  await requireUser()
+
   const intent = String(formData.get('intent') ?? 'save')
   const resetKey = intent.startsWith('reset:') ? intent.slice('reset:'.length) : null
   if (

@@ -3,6 +3,7 @@ import { getAppConfig } from '@/lib/config/app-config'
 import { prismaCatalogStore } from '@/lib/catalog/catalog-store'
 import { PageShell } from '@/components/shell/page-shell'
 import { SyncRunner } from './sync-runner'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 3 - catalog sync.
@@ -14,6 +15,8 @@ import { SyncRunner } from './sync-runner'
 export const dynamic = 'force-dynamic'
 
 export default async function CatalogSyncPage() {
+  await requireUser()
+
   const [state, config] = await Promise.all([prismaCatalogStore.readSyncState(), getAppConfig()])
   const staleAfterMs = config.catalogMaxAgeHours * 60 * 60 * 1000
   const ageMs = state.lastFullSyncAt ? Date.now() - state.lastFullSyncAt.getTime() : null

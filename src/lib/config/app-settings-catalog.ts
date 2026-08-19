@@ -25,6 +25,10 @@ export const APP_SETTING_KEYS = {
   checkFetchPromotions: 'check.fetch_promotions',
   haravanPromotionPageSize: 'haravan.promotion_page_size',
   haravanPromotionMaxPages: 'haravan.promotion_max_pages',
+  authSessionTtlHours: 'auth.session_ttl_hours',
+  authMaxFailedAttempts: 'auth.max_failed_attempts',
+  authLockoutMinutes: 'auth.lockout_minutes',
+  authMinPasswordLength: 'auth.min_password_length',
 } as const
 
 /**
@@ -123,6 +127,34 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
     description:
       'Lấy nhiều nhất chừng này lượt khi tải danh sách chương trình, để công cụ không chạy hoài nếu '
       + 'Haravan trả dữ liệu bất thường. Chạm mức này thì báo lỗi chứ không đưa ra danh sách thiếu',
+  },
+  {
+    key: APP_SETTING_KEYS.authSessionTtlHours,
+    value: '24',
+    description:
+      'Đăng nhập một lần thì dùng được bao nhiêu giờ rồi phải đăng nhập lại. Để 24 là mỗi ngày '
+      + 'đăng nhập một lần. Rút ngắn thì an toàn hơn nhưng phải gõ mật khẩu thường xuyên hơn',
+  },
+  {
+    key: APP_SETTING_KEYS.authMaxFailedAttempts,
+    value: '5',
+    description:
+      'Gõ sai mật khẩu liên tiếp bao nhiêu lần thì khoá tài khoản tạm thời, để người lạ không dò '
+      + 'mật khẩu bằng cách thử hoài. Đăng nhập đúng một lần là đếm lại từ đầu',
+  },
+  {
+    key: APP_SETTING_KEYS.authLockoutMinutes,
+    value: '15',
+    description:
+      'Bị khoá tạm thì phải chờ bao nhiêu phút mới đăng nhập lại được. Hết thời gian này tài khoản '
+      + 'tự mở lại, không cần ai can thiệp',
+  },
+  {
+    key: APP_SETTING_KEYS.authMinPasswordLength,
+    value: '8',
+    description:
+      'Mật khẩu phải dài ít nhất bao nhiêu ký tự khi tạo tài khoản hoặc đổi mật khẩu. Chỉ áp dụng '
+      + 'lúc đặt mật khẩu mới, không ảnh hưởng tài khoản đã có',
   },
 ]
 

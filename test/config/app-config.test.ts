@@ -97,4 +97,32 @@ describe('buildAppConfig', () => {
     const config = withSettings({ [APP_SETTING_KEYS.haravanApiBase]: 'https://webhook.haravan.com' })
     expect(config.haravanApiBase).toBe('https://webhook.haravan.com')
   })
+
+  it('ships the login settings with their seed defaults', () => {
+    const config = withSettings({})
+    expect(config.authSessionTtlHours).toBe(24)
+    expect(config.authMaxFailedAttempts).toBe(5)
+    expect(config.authLockoutMinutes).toBe(15)
+    expect(config.authMinPasswordLength).toBe(8)
+  })
+
+  it('takes operator values for the login settings', () => {
+    const config = withSettings({
+      [APP_SETTING_KEYS.authSessionTtlHours]: '8',
+      [APP_SETTING_KEYS.authMaxFailedAttempts]: '3',
+    })
+    expect(config.authSessionTtlHours).toBe(8)
+    expect(config.authMaxFailedAttempts).toBe(3)
+  })
+
+  it('will not let a bad login setting weaken the lock or the session', () => {
+    // 0 attempts would lock every account on its first try; a 0 hour session
+    // would expire the moment it is created; a 1 character minimum is no
+    // minimum at all. All three fall back to the default instead.
+    expect(withSettings({ [APP_SETTING_KEYS.authMaxFailedAttempts]: '0' }).authMaxFailedAttempts).toBe(5)
+    expect(withSettings({ [APP_SETTING_KEYS.authSessionTtlHours]: '0' }).authSessionTtlHours).toBe(24)
+    expect(withSettings({ [APP_SETTING_KEYS.authSessionTtlHours]: '' }).authSessionTtlHours).toBe(24)
+    expect(withSettings({ [APP_SETTING_KEYS.authMinPasswordLength]: '1' }).authMinPasswordLength).toBe(8)
+    expect(withSettings({ [APP_SETTING_KEYS.authLockoutMinutes]: '-5' }).authLockoutMinutes).toBe(15)
+  })
 })

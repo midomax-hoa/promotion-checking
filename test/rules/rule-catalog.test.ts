@@ -65,10 +65,11 @@ describe('app settings catalog', () => {
   // plus shop.timezone_offset_minutes added with reconciliation in phase 06,
   // plus check.fetch_promotions, haravan.promotion_page_size and
   // haravan.promotion_max_pages added 2026-08-19 once the promotion endpoint
-  // was measured against the real shop rather than a one-record dev store.
-  it('declares 14 settings with unique keys', () => {
-    expect(DEFAULT_APP_SETTINGS).toHaveLength(14)
-    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(14)
+  // was measured against the real shop rather than a one-record dev store,
+  // plus the four auth.* settings added 2026-08-19 with the login screen.
+  it('declares 18 settings with unique keys', () => {
+    expect(DEFAULT_APP_SETTINGS).toHaveLength(18)
+    expect(new Set(DEFAULT_APP_SETTINGS.map((s) => s.key)).size).toBe(18)
   })
 
   it('ships the promotion fetch switched on', () => {

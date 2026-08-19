@@ -19,6 +19,7 @@ import {
 } from '@/lib/check/finding-queries'
 import { UPLOAD_EXPIRED_MESSAGE } from '@/lib/check/upload-storage'
 import { getAppConfig } from '@/lib/config/app-config'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 2 - the result of one check run, re-openable at any time.
@@ -37,6 +38,7 @@ export default async function CheckResultPage({
   params: Promise<{ runId: string }>
   searchParams: Promise<SearchParamsInput>
 }) {
+  await requireUser()
   const { runId } = await params
   const filter = parseFindingFilter(await searchParams)
 

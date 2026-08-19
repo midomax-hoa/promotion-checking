@@ -7,6 +7,7 @@
 
 import { UPLOAD_EXPIRED_MESSAGE, readUploadedFile } from '@/lib/check/upload-storage'
 import { prisma } from '@/lib/db/prisma'
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth/current-user'
 import { buildReportWorkbook } from '@/lib/excel/report-exporter'
 
 export const runtime = 'nodejs'
@@ -18,6 +19,10 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ runId: string }> },
 ): Promise<Response> {
+  // The middleware only proves a cookie was sent; this is where it is proved
+  // genuine, so a hand-crafted request cannot reach the shop's data.
+  if (!(await getCurrentUser())) return unauthorizedResponse()
+
   const { runId } = await context.params
 
   const run = await prisma.checkRun.findUnique({

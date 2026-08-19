@@ -10,6 +10,7 @@ import { getAppConfig } from '@/lib/config/app-config'
 import { loadReconcileMatches } from '@/lib/reconcile/reconcile-queries'
 import { findRuleDefinition } from '@/lib/rules/rule-catalog'
 import { parseFindingFilter } from '@/lib/check/finding-filter'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 6 - one reconciliation, re-openable at any time.
@@ -60,6 +61,7 @@ export default async function ReconcileResultPage({
 }: {
   params: Promise<{ runId: string }>
 }) {
+  await requireUser()
   const { runId } = await params
   const run = await loadCheckRun(runId)
   if (run == null) notFound()

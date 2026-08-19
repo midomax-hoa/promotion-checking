@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { CatalogSyncError, type SyncResult } from '@/lib/haravan/catalog-sync'
 import { runCatalogSync } from '@/lib/haravan/run-catalog-sync'
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth/current-user'
 import {
   HaravanApiError,
   HaravanBlankQueryError,
@@ -24,6 +25,10 @@ export const dynamic = 'force-dynamic'
 let syncRunning = false
 
 export async function POST(request: Request): Promise<Response> {
+  // The middleware only proves a cookie was sent; this is where it is proved
+  // genuine, so a hand-crafted request cannot reach the shop's data.
+  if (!(await getCurrentUser())) return unauthorizedResponse()
+
   // A cross-site form post is a simple request, so it would otherwise be able to
   // burn the Haravan rate limit without ever reading the answer.
   const fetchSite = request.headers.get('Sec-Fetch-Site')

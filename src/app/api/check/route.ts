@@ -8,6 +8,7 @@
 
 import { NextResponse } from 'next/server'
 import { runFileCheck } from '@/lib/check/run-file-check'
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth/current-user'
 import { InvalidWorkbookError } from '@/lib/excel/promotion-workbook'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '@/lib/excel/upload-limits'
 
@@ -21,6 +22,10 @@ function tooLarge(): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  // The middleware only proves a cookie was sent; this is where it is proved
+  // genuine, so a hand-crafted request cannot reach the shop's data.
+  if (!(await getCurrentUser())) return unauthorizedResponse()
+
   // A cross-site multipart post is a simple request, so without this check any
   // page on the internet could make this server parse files on its behalf.
   const fetchSite = request.headers.get('Sec-Fetch-Site')

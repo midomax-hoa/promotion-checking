@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { SeverityCount } from '@/components/check/severity-badge'
 import { PageShell } from '@/components/shell/page-shell'
 import { loadHistory } from '@/lib/check/check-run-history'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 4 - the runs already done.
@@ -23,6 +24,8 @@ function formatDateTime(value: Date): string {
 }
 
 export default async function HistoryPage() {
+  await requireUser()
+
   const runs = await loadHistory(HISTORY_LIMIT)
 
   return (

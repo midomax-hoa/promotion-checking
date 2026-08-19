@@ -158,3 +158,41 @@ model AppSetting {
   key   String @id
   value String
 }
+
+/// An operator allowed to use the tool.
+///
+/// `username` and `email` are both stored lower-cased, because login accepts
+/// either one and "Hoa" and "hoa" must not be able to become two accounts.
+model User {
+  id           String @id @default(cuid())
+  username     String @unique
+  email        String @unique
+  passwordHash String
+
+  /// Consecutive failed logins. Reset to 0 by a successful one.
+  failedAttempts Int       @default(0)
+  /// Set once failedAttempts crosses the configured limit; null = not locked.
+  lockedUntil    DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  sessions Session[]
+}
+
+/// One logged-in browser.
+///
+/// Keyed by the SHA-256 of the cookie token rather than the token itself: whoever
+/// reads this table still cannot rebuild a cookie that would pass verification.
+///
+/// Sessions live in the database rather than in a signed cookie so that deleting
+/// an account, or logging out, takes effect immediately instead of at expiry.
+model Session {
+  tokenHash String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt]) // sweeping expired rows
+}

@@ -69,6 +69,15 @@ const APP_CONFIG_SCHEMA = {
   // endpoint which clamps at 50. The two cannot share one setting.
   haravanPromotionPageSize: [APP_SETTING_KEYS.haravanPromotionPageSize, positiveInt.max(250)],
   haravanPromotionMaxPages: [APP_SETTING_KEYS.haravanPromotionMaxPages, positiveInt.max(10_000)],
+  // A year is already far past "convenient"; anything longer is an unattended
+  // session nobody remembers opening.
+  authSessionTtlHours: [APP_SETTING_KEYS.authSessionTtlHours, positiveInt.max(24 * 365)],
+  authMaxFailedAttempts: [APP_SETTING_KEYS.authMaxFailedAttempts, positiveInt.max(100)],
+  // Capped at a day: a longer lockout is indistinguishable from a lost account.
+  authLockoutMinutes: [APP_SETTING_KEYS.authLockoutMinutes, positiveInt.max(1440)],
+  // Floor of 6 so the setting itself cannot be turned into a way to allow a
+  // one-character password; 128 is well past any password a person will type.
+  authMinPasswordLength: [APP_SETTING_KEYS.authMinPasswordLength, positiveInt.min(6).max(128)],
 } as const
 
 type ConfigField = keyof typeof APP_CONFIG_SCHEMA

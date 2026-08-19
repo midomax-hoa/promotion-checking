@@ -14,12 +14,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, ShieldCheck, X } from 'lucide-react'
+import { LogOut, Menu, ShieldCheck, X } from 'lucide-react'
+import { logoutAction } from '@/app/dang-nhap/actions'
 import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { cn } from '@/lib/utils'
 import { isNavItemActive, NAV_ITEMS } from './nav-items'
 
-export function AppSidebar() {
+export function AppSidebar({ username }: { username: string }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -106,6 +107,22 @@ export function AppSidebar() {
           <span className="flex-1 text-xs text-muted-foreground">Hiển thị</span>
           <ThemeToggle />
         </div>
+
+        {/* A plain form, so signing out still works with JavaScript disabled and
+            cannot be triggered by a stray GET from a prefetch or a crawler. */}
+        <form action={logoutAction} className="flex items-center gap-2 border-t px-3 py-2.5">
+          <span className="min-w-0 flex-1 truncate text-xs" title={username}>
+            <span className="text-muted-foreground">Đang đăng nhập: </span>
+            <span className="font-medium">{username}</span>
+          </span>
+          <button
+            type="submit"
+            aria-label={`Đăng xuất khỏi tài khoản ${username}`}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
+          >
+            <LogOut aria-hidden className="size-4" />
+          </button>
+        </form>
       </div>
     </>
   )

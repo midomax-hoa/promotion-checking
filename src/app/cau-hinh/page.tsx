@@ -4,6 +4,7 @@ import { RuleGroupJump } from '@/components/config/rule-group-jump'
 import { PageShell } from '@/components/shell/page-shell'
 import { prisma } from '@/lib/db/prisma'
 import { loadRuleConfigs } from '@/lib/rules/rule-config-store'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 6 - configuration.
@@ -17,6 +18,8 @@ import { loadRuleConfigs } from '@/lib/rules/rule-config-store'
 export const dynamic = 'force-dynamic'
 
 export default async function ConfigPage() {
+  await requireUser()
+
   const [configs, settingRows] = await Promise.all([
     loadRuleConfigs(),
     prisma.appSetting.findMany(),

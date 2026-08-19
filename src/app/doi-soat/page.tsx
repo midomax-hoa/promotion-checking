@@ -4,6 +4,7 @@ import { ReconcileRunner } from '@/components/reconcile/reconcile-runner'
 import { loadReconcileHistory, loadReconcileSources } from '@/lib/reconcile/reconcile-queries'
 import { SeverityCount } from '@/components/check/severity-badge'
 import { PageShell } from '@/components/shell/page-shell'
+import { requireUser } from '@/lib/auth/current-user'
 
 /**
  * Screen 5 - reconcile after import.
@@ -27,6 +28,8 @@ function formatDateTime(value: Date): string {
 }
 
 export default async function ReconcilePage() {
+  await requireUser()
+
   const [sources, history] = await Promise.all([
     loadReconcileSources(SOURCE_LIMIT),
     loadReconcileHistory(HISTORY_LIMIT),
