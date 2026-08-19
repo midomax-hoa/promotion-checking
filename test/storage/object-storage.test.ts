@@ -62,7 +62,7 @@ const FULL_CONFIG = {
   MINIO_PORT: '9000',
   MINIO_ACCESS_KEY: 'key',
   MINIO_SECRET_KEY: 'secret',
-  MINIO_BUCKET: 'zma-assets',
+  MINIO_BUCKET: 'promotion-checking',
   MINIO_USE_SSL: 'false',
 }
 
@@ -83,11 +83,11 @@ describe('deciding whether object storage is in play', () => {
   it('is on in production once the endpoint is there', () => {
     configure(FULL_CONFIG)
     expect(isObjectStorageEnabled()).toBe(true)
-    expect(objectStorageConfig()?.bucket).toBe('zma-assets')
+    expect(objectStorageConfig()?.bucket).toBe('promotion-checking')
   })
 
   it('refuses a half-filled configuration instead of quietly writing to disk', () => {
-    configure({ MINIO_ENDPOINT: 'localhost', MINIO_BUCKET: 'zma-assets' })
+    configure({ MINIO_ENDPOINT: 'localhost', MINIO_BUCKET: 'promotion-checking' })
     expect(() => objectStorageConfig()).toThrow(/MINIO_ACCESS_KEY/)
   })
 
@@ -103,7 +103,7 @@ describe('building the object key', () => {
   it('files the upload under this project prefix, by year and month', () => {
     configure(FULL_CONFIG)
     expect(buildObjectKey('run1-file.xlsx', new Date(2026, 7, 19))).toBe(
-      'promotion-checking/uploads/2026/08/run1-file.xlsx',
+      'uploads/2026/08/run1-file.xlsx',
     )
   })
 
@@ -119,9 +119,9 @@ describe('guarding the key on the way back', () => {
   it('accepts only keys inside the configured prefix', () => {
     configure(FULL_CONFIG)
     const config = objectStorageConfig()!
-    expect(isKeyInsidePrefix('promotion-checking/uploads/2026/08/run1.xlsx', config)).toBe(true)
+    expect(isKeyInsidePrefix('uploads/2026/08/run1.xlsx', config)).toBe(true)
     expect(isKeyInsidePrefix('another-project/secrets.xlsx', config)).toBe(false)
-    expect(isKeyInsidePrefix('promotion-checking/uploads/../../etc/passwd', config)).toBe(false)
+    expect(isKeyInsidePrefix('uploads/../../etc/passwd', config)).toBe(false)
   })
 
   it('refuses to write outside the prefix', async () => {
@@ -130,13 +130,13 @@ describe('guarding the key on the way back', () => {
   })
 
   it('reads nothing rather than throwing when storage is switched off', async () => {
-    await expect(getObject('promotion-checking/uploads/2026/08/run1.xlsx')).resolves.toBeNull()
+    await expect(getObject('uploads/2026/08/run1.xlsx')).resolves.toBeNull()
   })
 })
 
 describe('telling a stored object key from a stored disk name', () => {
   it('recognises the two shapes', () => {
-    expect(isObjectKey('promotion-checking/uploads/2026/08/run1-file.xlsx')).toBe(true)
+    expect(isObjectKey('uploads/2026/08/run1-file.xlsx')).toBe(true)
     // Runs saved before MinIO existed keep this shape and must still read from disk.
     expect(isObjectKey('run1-file.xlsx')).toBe(false)
   })
@@ -145,7 +145,7 @@ describe('telling a stored object key from a stored disk name', () => {
     // Storage is off here, so a null proves the read never fell through to disk
     // (a disk read of this name would have been refused as escaping anyway).
     await expect(
-      readUploadedFile('promotion-checking/uploads/2026/08/run1-file.xlsx'),
+      readUploadedFile('uploads/2026/08/run1-file.xlsx'),
     ).resolves.toBeNull()
   })
 })

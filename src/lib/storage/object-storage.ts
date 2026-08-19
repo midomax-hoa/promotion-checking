@@ -25,15 +25,20 @@ const CONFIG_SCHEMA = z.object({
   bucket: z.string().min(1),
   useSSL: z.boolean(),
   /**
-   * Folder inside the bucket. Configurable because the bucket is shared with
-   * other projects, so this project's files must stay in a corner of their own.
+   * Folder inside the bucket. Configurable so the deployment can file the
+   * uploads wherever its bucket layout wants them - a bucket shared with
+   * another project needs a corner of its own, a dedicated one does not.
+   *
+   * Never empty: `isKeyInsidePrefix` is the guard that stops a hand-edited
+   * database row from reading an arbitrary object, and an empty prefix would
+   * match everything.
    */
   prefix: z.string().min(1),
 })
 
 export type ObjectStorageConfig = z.infer<typeof CONFIG_SCHEMA>
 
-const DEFAULT_PREFIX = 'promotion-checking/uploads'
+const DEFAULT_PREFIX = 'uploads'
 
 /**
  * Field name back to the variable the operator actually edits. Without it the

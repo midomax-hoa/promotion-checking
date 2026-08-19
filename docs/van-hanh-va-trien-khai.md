@@ -26,9 +26,9 @@ Chép `.env.example` thành `.env` rồi điền. **Không commit `.env`.**
 | `MINIO_PORT` | Không | Cổng MinIO. Mặc định `9000` |
 | `MINIO_ACCESS_KEY` | Khi có endpoint | Khoá truy cập MinIO |
 | `MINIO_SECRET_KEY` | Khi có endpoint | Khoá bí mật MinIO |
-| `MINIO_BUCKET` | Khi có endpoint | Tên bucket, ví dụ `zma-assets` |
+| `MINIO_BUCKET` | Khi có endpoint | Tên bucket, ví dụ `promotion-checking` |
 | `MINIO_USE_SSL` | Không | Chỉ đúng chữ `true` mới bật TLS. Mặc định `false` |
-| `MINIO_PREFIX` | Không | Thư mục con trong bucket. Mặc định `promotion-checking/uploads` |
+| `MINIO_PREFIX` | Không | Thư mục con trong bucket. Mặc định `uploads`. Đổi sau khi đã chạy thật sẽ làm các lần chạy cũ không đọc lại được |
 | `AUTH_SEED_USERNAME` | Không | Tên đăng nhập của tài khoản đầu tiên. `npm run db:seed` chỉ đọc khi bảng `User` còn rỗng |
 | `AUTH_SEED_EMAIL` | Không | Email của tài khoản đầu tiên |
 | `AUTH_SEED_PASSWORD` | Không | Mật khẩu của tài khoản đầu tiên. Xoá khỏi tệp sau lần đăng nhập đầu |

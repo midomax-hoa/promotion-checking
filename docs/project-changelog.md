@@ -31,7 +31,7 @@ File `.xlsx` người dùng tải lên đang ghi thẳng xuống đĩa của má
 ### Thay đổi
 
 - **Thêm nơi lưu MinIO** (kho đối tượng S3), chỉ bật khi `NODE_ENV=production` **và** có `MINIO_ENDPOINT`. Mọi trường hợp khác vẫn ghi xuống `UPLOAD_DIR` như cũ — máy phát triển và bộ kiểm thử khỏi phải dựng MinIO, và `.env` chép từ máy chủ về cũng không đẩy được file thử nghiệm vào bucket thật.
-- **Khoá đối tượng** `{MINIO_PREFIX}/{năm}/{tháng}/{runId}-{tên đã làm sạch}.xlsx`, mặc định prefix là `promotion-checking/uploads`. Có prefix riêng vì bucket dùng chung với dự án khác; chia theo tháng để còn liệt kê được sau vài năm.
+- **Khoá đối tượng** `{MINIO_PREFIX}/{năm}/{tháng}/{runId}-{tên đã làm sạch}.xlsx`, mặc định prefix là `uploads`. Prefix không được rỗng vì nó cũng là lớp chặn khoá lạ; chia theo tháng để còn liệt kê được sau vài năm.
 - **Không cần chuyển đổi dữ liệu.** Lần chạy cũ lưu tên phẳng, lần chạy mới lưu khoá có dấu `/`; đọc lại phân biệt bằng chính dấu `/` đó, nên các lần chạy cũ vẫn xuất báo cáo được từ đĩa.
 - **Chặn prefix cả hai chiều**: ghi hay đọc một khoá nằm ngoài prefix của dự án đều bị từ chối, để một dòng `CheckRun` bị sửa tay không với sang được file của dự án bên cạnh trong bucket.
 - `saveUploadedFile()` nay **trả về** định danh thật sự đã dùng; nơi gọi ghi đúng giá trị đó vào `CheckRun.storedFileName` thay vì tự đoán tên.
