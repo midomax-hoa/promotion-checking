@@ -38,50 +38,57 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
     key: APP_SETTING_KEYS.catalogMaxAgeHours,
     value: '24',
-    description: 'Cache danh mục cũ hơn số giờ này thì cảnh báo',
+    description:
+      'Danh sách sản phẩm tải về từ Haravan cũ hơn số giờ này thì màn hình kiểm tra sẽ nhắc đồng bộ lại',
   },
   {
     key: APP_SETTING_KEYS.haravanApiBase,
     value: 'https://apis.haravan.com',
-    description: 'Địa chỉ gốc của API Haravan',
+    description: 'Địa chỉ máy chủ Haravan mà công cụ gọi tới, chỉ đổi khi Haravan đổi địa chỉ',
   },
   {
     key: APP_SETTING_KEYS.haravanPageSize,
     value: '50',
-    description: 'Số bản ghi mỗi trang - Haravan ép cứng 50',
+    description: 'Mỗi lượt lấy về bao nhiêu sản phẩm khi đồng bộ - Haravan chỉ cho tối đa 50',
   },
   {
     key: APP_SETTING_KEYS.haravanRequestsPerSecond,
     value: '3',
-    description: 'Số lượt gọi mỗi giây, đặt dưới mức rỉ 4/s cho an toàn',
+    description:
+      'Mỗi giây gọi Haravan tối đa bao nhiêu lượt. Haravan cho 4, để 3 cho chắc - đặt cao hơn dễ bị chặn tạm thời',
   },
   {
     key: APP_SETTING_KEYS.haravanMaxAttempts,
     value: '4',
-    description: 'Số lần thử tối đa cho một lượt gọi API trước khi coi là thất bại',
+    description: 'Gọi Haravan bị lỗi thì thử lại tối đa mấy lần trước khi báo thất bại',
   },
   {
     key: APP_SETTING_KEYS.catalogCursorOverlapMs,
     value: '300000',
     description:
-      'Lùi mốc đồng bộ tăng dần lại chừng này mili giây, tránh bỏ sót sản phẩm sửa ngay lúc đang đồng bộ',
+      'Khi đồng bộ nhanh (chỉ lấy phần vừa thay đổi), lùi mốc thời gian lại chừng này mili giây '
+      + 'để không bỏ sót sản phẩm được sửa ngay lúc đang đồng bộ. 300000 là 5 phút',
   },
   {
     key: APP_SETTING_KEYS.catalogShortfallTolerance,
     value: '0',
     description:
-      'Số sản phẩm được phép thiếu so với products/count.json mà vẫn coi là đồng bộ đầy đủ',
+      'Được phép thiếu bao nhiêu sản phẩm so với tổng số Haravan báo mà vẫn coi là đồng bộ đủ. '
+      + 'Để 0 nghĩa là phải khớp đúng từng sản phẩm',
   },
   {
     key: APP_SETTING_KEYS.reconcileRecheckDelayMs,
     value: '8000',
-    description: 'Khoảng chờ giữa hai lần kiểm để tránh báo oan do trễ chỉ mục',
+    description:
+      'Khi đối soát, chờ chừng này mili giây rồi kiểm lại lần hai. Haravan cần chút thời gian mới '
+      + 'hiện chương trình vừa tạo, chờ như vậy để khỏi báo lỗi oan. 8000 là 8 giây',
   },
   {
     key: APP_SETTING_KEYS.shopTimezoneOffsetMinutes,
     value: '420',
     description:
-      'Lệch múi giờ của cửa hàng so với UTC, tính bằng phút - Haravan trả mốc thời gian dạng UTC nên phải quy đổi trước khi so',
+      'Múi giờ cửa hàng, ghi bằng số phút lệch so với giờ quốc tế. Việt Nam là 420, tức GMT+7. '
+      + 'Haravan trả về giờ quốc tế nên phải quy đổi trước khi so ngày',
   },
   {
     key: APP_SETTING_KEYS.reportMaxRowsPerPage,
@@ -91,28 +98,31 @@ export const DEFAULT_APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
     key: APP_SETTING_KEYS.moneyToleranceVnd,
     value: '0.5',
-    description: 'Ngưỡng sai số khi so sánh tiền, tránh lệch do dấu phẩy động',
+    description:
+      'So tiền mà lệch dưới mức này (tính bằng đồng) thì coi như bằng nhau. Chỉ để bỏ qua sai số lẻ '
+      + 'lúc máy tính toán, không phải để bỏ qua lệch giá thật',
   },
   {
     key: APP_SETTING_KEYS.checkFetchPromotions,
     value: 'true',
     description:
-      'true/false - kéo danh sách chương trình từ Haravan khi kiểm tra file, để chạy luật D8 và E3. '
-      + 'Tắt đi thì hai luật đó được ghi là bỏ qua, đổi lại mỗi lượt kiểm tra không phải chờ mạng',
+      'Gõ true để bật, false để tắt. Bật thì mỗi lần kiểm tra file sẽ tải danh sách chương trình '
+      + 'đang có trên Haravan về để chạy luật D8 và E3. Tắt thì hai luật đó ghi là bỏ qua, đổi lại '
+      + 'kiểm tra nhanh hơn vì khỏi chờ mạng',
   },
   {
     key: APP_SETTING_KEYS.haravanPromotionPageSize,
     value: '250',
     description:
-      'Số chương trình mỗi trang - endpoint chương trình nhận tới 250, khác endpoint sản phẩm bị ép 50. '
-      + 'Đặt quá 250 thì máy chủ lặng lẽ trả về 50',
+      'Mỗi lượt lấy về bao nhiêu chương trình. Danh sách chương trình cho tối đa 250, khác danh sách '
+      + 'sản phẩm chỉ được 50. Đặt quá 250 thì Haravan âm thầm trả về 50',
   },
   {
     key: APP_SETTING_KEYS.haravanPromotionMaxPages,
     value: '200',
     description:
-      'Trần số trang khi duyệt danh sách chương trình, chặn vòng lặp vô hạn nếu phân trang trục trặc. '
-      + 'Chạm trần thì lượt kéo báo lỗi thay vì trả về danh sách thiếu',
+      'Lấy nhiều nhất chừng này lượt khi tải danh sách chương trình, để công cụ không chạy hoài nếu '
+      + 'Haravan trả dữ liệu bất thường. Chạm mức này thì báo lỗi chứ không đưa ra danh sách thiếu',
   },
 ]
 

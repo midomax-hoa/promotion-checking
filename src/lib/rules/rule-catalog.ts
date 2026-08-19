@@ -42,10 +42,10 @@ const rule = (
 export const RULE_CATALOG: readonly RuleDefinition[] = [
   // Group A - file structure
   rule('A1', 'A', 'Thiếu cột bắt buộc (Mã hiệu, Kiểu ctkm, Tên ctkm)', 'critical'),
-  rule('A2', 'A', 'Liệt kê mọi sheet kèm số dòng đã đọc', 'warn'),
+  rule('A2', 'A', 'Liệt kê mọi sheet trong file kèm số dòng đã đọc được', 'warn'),
   rule('A3', 'A', 'Ô ngày sai định dạng hoặc không đọc được', 'danger'),
   rule('A4', 'A', 'Ô SKU rỗng hoặc chỉ có khoảng trắng', 'warn'),
-  rule('A5', 'A', 'Dòng trống xen giữa vùng dữ liệu', 'warn'),
+  rule('A5', 'A', 'Có dòng trống nằm xen giữa vùng dữ liệu', 'warn'),
 
   // Group B - checked against the Haravan catalog cache
   // `suggestMaxComparisons` bounds the near-match search across a whole run.
@@ -56,7 +56,7 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
   }),
   rule('B2', 'B', 'Sản phẩm chưa đăng bán hoặc đang ẩn', 'warn'),
   rule('B3', 'B', 'Giá niêm yết trong file lệch giá thật trên Haravan', 'danger'),
-  rule('B4', 'B', 'Mã hiệu không bắt đầu bằng Mã', 'warn'),
+  rule('B4', 'B', 'Mã hiệu không bắt đầu bằng mã sản phẩm ở cột Mã', 'warn'),
   rule('B5', 'B', 'SKU khớp nhiều biến thể trên Haravan', 'danger'),
   rule('B6', 'B', 'Sản phẩm bị đánh dấu cấm khuyến mãi', 'danger'),
 
@@ -71,7 +71,7 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
     params: { maxPercentValue: 1 },
   }),
   rule('C6', 'C', 'Kiểu ctkm không xác định hoặc điền lệch cột', 'critical'),
-  rule('C7', 'C', 'Giá sau giảm không tròn đơn vị làm tròn', 'warn', { params: { roundingUnit: 1000 } }),
+  rule('C7', 'C', 'Giá sau giảm không tròn theo đơn vị đã đặt', 'warn', { params: { roundingUnit: 1000 } }),
 
   // Group D - per promotion program
   rule('D1', 'D', 'Tên chương trình không khớp giá trị giảm', 'warn', { enabled: false }),
@@ -80,15 +80,15 @@ export const RULE_CATALOG: readonly RuleDefinition[] = [
   rule('D4', 'D', 'Ngày bắt đầu đã trôi qua', 'warn'),
   rule('D5', 'D', 'Ngày kết thúc đã qua', 'danger'),
   rule('D6', 'D', 'Ngày kết thúc trước ngày bắt đầu', 'critical'),
-  rule('D7', 'D', 'Thời lượng chương trình bất thường', 'warn', {
+  rule('D7', 'D', 'Chương trình kéo dài bất thường, quá dài hoặc quá ngắn', 'warn', {
     params: { maxDurationDays: 90, minDurationDays: 1 },
   }),
   rule('D8', 'D', 'Tên chương trình đã tồn tại trên Haravan', 'danger'),
-  rule('D9', 'D', 'Số dư âm, hoặc bằng 0 mà không để trống', 'warn'),
+  rule('D9', 'D', 'Số dư ghi số âm, hoặc ghi 0 thay vì để trống', 'warn'),
   rule('D10', 'D', 'Trong cùng chương trình các dòng ghi Số dư khác nhau', 'danger'),
 
   // Group E - overlap
-  rule('E1', 'E', 'Một SKU nằm trong từ 2 chương trình có thời gian giao nhau', 'danger'),
+  rule('E1', 'E', 'Một SKU nằm trong 2 chương trình trở lên có thời gian trùng nhau', 'danger'),
   rule('E2', 'E', 'SKU trùng lặp trong cùng một chương trình', 'critical'),
   rule('E3', 'E', 'SKU đang thuộc chương trình khác đang chạy trên Haravan', 'warn'),
 
@@ -127,9 +127,9 @@ export const SYSTEM_FINDING_TITLES: Readonly<Record<string, string>> = {
 export const GROUP_TITLES: Readonly<Record<GroupCode, string>> = {
   A: 'Nhóm A — Cấu trúc file',
   B: 'Nhóm B — Đối chiếu danh mục Haravan',
-  C: 'Nhóm C — Số học giá và giảm giá',
-  D: 'Nhóm D — Theo chương trình khuyến mãi',
-  E: 'Nhóm E — Trùng lặp và chồng lấn',
+  C: 'Nhóm C — Tính toán giá và mức giảm',
+  D: 'Nhóm D — Theo từng chương trình khuyến mãi',
+  E: 'Nhóm E — Trùng SKU và trùng thời gian',
   F: 'Nhóm F — Đối soát sau import',
 }
 

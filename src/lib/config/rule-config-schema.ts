@@ -30,21 +30,21 @@ const RULE_PARAM_FIELDS: Readonly<Record<string, readonly RuleParamField[]>> = {
   B1: [
     {
       key: 'suggestMaxDistance',
-      label: 'Độ lệch tối đa khi gợi ý SKU gần giống',
+      label: 'SKU gợi ý được phép khác tối đa',
       unit: 'ký tự',
       min: 1,
       max: 5,
       integer: true,
-      hint: 'Càng lớn càng gợi ý được nhiều nhưng dễ gợi ý sai và chạy chậm hơn',
+      hint: 'Để càng lớn thì gợi ý được nhiều SKU hơn, nhưng dễ gợi ý sai và chạy chậm hơn',
     },
     {
       key: 'suggestMaxComparisons',
-      label: 'Số phép so tối đa khi tìm gợi ý',
-      unit: 'phép so',
+      label: 'Số lần dò tìm tối đa khi gợi ý',
+      unit: 'lần dò',
       min: 10_000,
       max: 20_000_000,
       integer: true,
-      hint: 'Chặn trên để file toàn SKU lạ không làm lần kiểm tra kéo dài hàng phút',
+      hint: 'Giới hạn để file có quá nhiều SKU lạ không làm lần kiểm tra kéo dài hàng phút',
     },
   ],
   C4: [
@@ -60,7 +60,7 @@ const RULE_PARAM_FIELDS: Readonly<Record<string, readonly RuleParamField[]>> = {
   C5: [
     {
       key: 'maxPercentValue',
-      label: 'Giá trị lớn nhất chấp nhận ở cột phần trăm',
+      label: 'Cột phần trăm chỉ được ghi tối đa',
       min: 0.01,
       max: 100,
       integer: false,
@@ -98,12 +98,12 @@ const RULE_PARAM_FIELDS: Readonly<Record<string, readonly RuleParamField[]>> = {
   F2: [
     {
       key: 'percentTolerance',
-      label: 'Sai số cho phép khi so phần trăm',
+      label: 'So phần trăm được phép lệch tối đa',
       unit: '%',
       min: 0,
       max: 100,
       integer: false,
-      hint: 'Chỉ để hấp thụ sai lệch dấu phẩy động, không phải để bỏ qua lệch thật',
+      hint: 'Chỉ để bỏ qua sai số lẻ lúc máy tính toán, không phải để bỏ qua lệch thật',
     },
   ],
 }

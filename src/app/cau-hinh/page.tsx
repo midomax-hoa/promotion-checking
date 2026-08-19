@@ -26,7 +26,7 @@ export default async function ConfigPage() {
   return (
     <PageShell
       title="Cấu hình luật kiểm tra"
-      description="Mọi ngưỡng đều sửa được ở đây, không có con số nào bị chôn cứng trong mã nguồn. Giá trị khác mặc định được tô nền nhạt kèm ghi chú giá trị gốc."
+      description="Mọi con số dùng khi kiểm tra file đều sửa được ngay tại đây. Ô nào đang khác giá trị ban đầu sẽ được tô nền nhạt và ghi rõ giá trị ban đầu, bấm Về mặc định là trả lại như cũ."
       width="medium"
     >
       <section className="flex flex-col gap-3">
@@ -37,16 +37,16 @@ export default async function ConfigPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Luật kiểm tra theo nhóm</h2>
         <p className="text-sm text-muted-foreground">
-          Tắt một luật thì luật đó không còn xuất hiện trong kết quả kiểm tra. Đổi mức cảnh báo chỉ
-          đổi cách xếp loại, không đổi cách phát hiện.
+          Bỏ chọn một luật thì lần kiểm tra sau không còn báo lỗi theo luật đó nữa. Đổi mức cảnh báo
+          chỉ đổi màu và thứ tự ưu tiên trong bảng kết quả, còn lỗi thì vẫn phát hiện y như cũ.
         </p>
         <RuleGroupJump />
         <RuleConfigTable configs={configs} />
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Cấu hình áp dụng ngay cho lần kiểm tra kế tiếp. Kết quả đã lưu trước đó giữ nguyên, vì mỗi
-        lần chạy ghi lại số phát hiện tại thời điểm đó.
+        Bấm lưu là áp dụng ngay cho lần kiểm tra kế tiếp. Các lần kiểm tra đã chạy trước đó vẫn giữ
+        nguyên kết quả cũ, vì mỗi lần chạy đã lưu lại đúng những lỗi tìm thấy lúc đó.
       </p>
     </PageShell>
   )
