@@ -4,7 +4,6 @@
 # same line endings break a Dockerfile RUN continuation.
 *.sh text eol=lf
 Dockerfile text eol=lf
-Caddyfile text eol=lf
 docker-compose*.yml text eol=lf
 .dockerignore text eol=lf
 # Templates copied by hand on the server, so they carry the same requirement.

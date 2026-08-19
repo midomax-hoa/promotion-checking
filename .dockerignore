@@ -38,7 +38,6 @@ vitest.config.mts
 Dockerfile
 .dockerignore
 docker-compose*.yml
-Caddyfile
 scripts/
 
 # AI assistant workspaces
